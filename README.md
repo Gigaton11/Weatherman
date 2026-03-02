@@ -56,8 +56,8 @@ WeatherDashboard/
 ## Getting Started
 
 ### Prerequisites
-- .NET 8.0 SDK or later
-- Visual Studio Code or Visual Studio 2022+
+- .NET 10.0 SDK or later
+- Visual Studio Code
 - Git
 - OpenWeatherMap API key (free tier available)
 
@@ -65,7 +65,7 @@ WeatherDashboard/
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/WeatherMan.git
+   git clone https://github.com/Gigaton11/WeatherMan.git
    cd WeatherMan/WeatherDashboard
    ```
 
