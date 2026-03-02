@@ -1,0 +1,98 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options directory
+.vs/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# MyGet local packages
+.myget/
+
+# Local user secrets
+appsettings.Development.json
+appsettings.Production.json
+secrets.json
+
+# Environment variables
+.env
+.env.local
+
+# API Keys and sensitive data
+*.key
+*.pem
+*.pfx
+
+# OpenWeatherMap API Key
+OPENWEATHERMAP_API_KEY
+
+# AWS credentials (should use profiles, not committed keys)
+.aws/credentials
+.aws/config
+
+# Lambda
+sam-tests/
+
+# Publish
+PublishProfiles/
+publish/
+
+# IDE-specific cache
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+~*
+*.swp
+*.swo
+
+# Test results
+TestResults/
+*.coverage
+*.coveragexml
+
+# Log files
+logs/
+*.log
+*.log.*
+
+# Built application packages
+*.apk
+*.ipa
+
+# Static files cache
+wwwroot/lib/

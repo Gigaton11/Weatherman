@@ -1,0 +1,76 @@
+@model WeatherData
+
+@{
+    ViewData["Title"] = $"Weather in {Model.City}";
+}
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card weather-card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h2>@Model.City, @Model.Country</h2>
+                            <h4 class="text-muted">@Model.Description</h4>
+                            <hr>
+                            <p><strong>Temperature:</strong> @Model.Temperature.ToString("F1")°C</p>
+                            <p><strong>Feels Like:</strong> @Model.FeelsLike.ToString("F1")°C</p>
+                            <p><strong>Humidity:</strong> @Model.Humidity%</p>
+                            <p><strong>Pressure:</strong> @Model.Pressure hPa</p>
+                            <p><strong>Wind Speed:</strong> @Model.WindSpeed.ToString("F1") m/s</p>
+                        </div>
+                        <div class="col-md-6 text-center">
+                            <img src="@Model.IconUrl" alt="@Model.Description" class="weather-icon">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <small class="text-muted">
+                            @if (Model.IsFromCache)
+                            {
+                                <span class="badge bg-info">Cached Data</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Fresh Data</span>
+                            }
+                            Last Updated: @Model.RetrievedAt.ToString("g")
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <a href="/" class="btn btn-secondary">Search Another City</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+    }
+    .container {
+        padding: 20px;
+    }
+    .weather-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    .weather-icon {
+        max-width: 150px;
+        margin: 20px 0;
+    }
+    .weather-card h2 {
+        color: #333;
+        margin-bottom: 10px;
+    }
+    .weather-card p {
+        font-size: 16px;
+        line-height: 1.8;
+    }
+</style>
