@@ -2,65 +2,105 @@
     ViewData["Title"] = "Weather Dashboard";
 }
 
-<div class="container mt-5">
+<div class="page-section">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <h1 class="mb-4">Weather Dashboard</h1>
-            
-            <form method="post" action="/Home/SearchWeather" class="mb-5">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="city">City Name</label>
-                            <input type="text" class="form-control" id="city" name="city" 
-                                   placeholder="e.g., London, New York" required>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="country">Country (Optional)</label>
-                            <input type="text" class="form-control" id="country" name="country" 
-                                   placeholder="e.g., UK, US">
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-primary mt-4 w-100">Search</button>
-                        </div>
-                    </div>
+        <div class="col-lg-9 col-xl-8 mx-auto">
+            <header class="mb-4">
+                <h1 class="display-6 mb-2">Weather Dashboard</h1>
+                <p class="lead text-muted mb-0">Search current weather conditions by city and manage your favorites.</p>
+            </header>
+
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success app-alert" role="alert">
+                    @TempData["SuccessMessage"]
                 </div>
-            </form>
+            }
+
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger app-alert" role="alert">
+                    @TempData["ErrorMessage"]
+                </div>
+            }
+
+            <section class="card app-card mb-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">Search Weather</h2>
+                    <form asp-action="SearchWeather" asp-controller="Home" method="post" class="mb-0">
+                        @Html.AntiForgeryToken()
+                        <div class="row g-3 align-items-end search-row">
+                            <div class="col-12 col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label" for="city">City Name</label>
+                                    <input type="text" class="form-control" id="city" name="city"
+                                           placeholder="e.g., London, New York" required>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="form-group">
+                                    <label class="form-label" for="country">Country (Optional)</label>
+                                    <input type="text" class="form-control" id="country" name="country"
+                                           placeholder="e.g., UK, US">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-2 d-grid">
+                                <div class="form-group w-100">
+                                    <button type="submit" class="btn btn-primary w-100 search-btn">Search</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </section>
 
             @if (ViewData.ModelState.Values.Any(v => v.Errors.Any()))
             {
-                <div class="alert alert-danger" role="alert">
+                <div class="alert alert-danger app-alert" role="alert">
                     @Html.ValidationSummary(true)
                 </div>
             }
 
-            <div class="card">
-                <div class="card-body text-center">
-                    <h5 class="card-title">Get Started</h5>
-                    <p class="card-text">Enter a city name above to see current weather conditions</p>
+            @{
+                var favoriteCities = ViewBag.FavoriteCities as List<string> ?? new List<string>();
+            }
+
+            <section class="card app-card mb-4">
+                <div class="card-body p-4">
+                    <h2 class="h5 card-title mb-3">Favorite Cities</h2>
+                    @if (favoriteCities.Count == 0)
+                    {
+                        <p class="card-text text-muted mb-0">No favorites yet. Search a city and click "Add To Favorites".</p>
+                    }
+                    else
+                    {
+                        @foreach (var favorite in favoriteCities)
+                        {
+                            <div class="favorite-item d-flex justify-content-between align-items-center rounded p-3 mb-2">
+                                <span>@favorite</span>
+                                <div class="d-flex gap-2">
+                                    <form asp-action="SearchWeather" asp-controller="Home" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="city" value="@favorite" />
+                                        <button type="submit" class="btn btn-sm btn-primary me-1">Search</button>
+                                    </form>
+                                    <form asp-action="RemoveFavoriteCity" asp-controller="Home" method="post" class="d-inline">
+                                        <input type="hidden" name="city" value="@favorite" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                    </form>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
-            </div>
+            </section>
+
+            <section class="card app-card">
+                <div class="card-body text-center p-4">
+                    <h2 class="h5 card-title">Get Started</h2>
+                    <p class="card-text mb-0">Enter a city name above to see current weather conditions.</p>
+                </div>
+            </section>
         </div>
     </div>
 </div>
-
-<style>
-    body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-    }
-    .container {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 10px;
-        padding: 30px;
-        margin-top: 50px;
-    }
-    h1 {
-        color: #333;
-        text-align: center;
-    }
-</style>

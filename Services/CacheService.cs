@@ -1,6 +1,9 @@
 using System.Text.Json;
+using System.Globalization;
 using WeatherDashboard.Models;
 using Microsoft.Extensions.Caching.Memory;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 
 namespace WeatherDashboard.Services;
 
@@ -168,14 +171,20 @@ public class AmazonElastiCacheService : ICacheService
 public class DynamoDbUserPreferencesService : IUserPreferencesService
 {
     private readonly ILogger<DynamoDbUserPreferencesService> _logger;  // For logging database operations
+    private readonly IAmazonDynamoDB _dynamoDb;
+    private readonly string _tableName;
 
     /// <summary>
     /// Constructor: Inject logger dependency
     /// </summary>
     public DynamoDbUserPreferencesService(
-        ILogger<DynamoDbUserPreferencesService> logger)
+        ILogger<DynamoDbUserPreferencesService> logger,
+        IAmazonDynamoDB dynamoDb,
+        IConfiguration configuration)
     {
         _logger = logger;
+        _dynamoDb = dynamoDb;
+        _tableName = configuration["AWS:DynamoDB:TableName"] ?? "UserWeatherPreferences";
     }
 
     /// <summary>
@@ -196,12 +205,27 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
     {
         try
         {
-            // TODO: Implement DynamoDB query
-            await Task.Delay(0);
-            
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _logger.LogWarning("GetUserPreferencesAsync called with empty userId");
+                return null;
+            }
+
+            var response = await _dynamoDb.GetItemAsync(new GetItemRequest
+            {
+                TableName = _tableName,
+                Key = BuildUserKey(userId),
+                ConsistentRead = true
+            });
+
+            if (response.Item == null || response.Item.Count == 0)
+            {
+                _logger.LogInformation("No preferences found for user: {UserId}", userId);
+                return null;
+            }
+
             _logger.LogInformation("Retrieved preferences for user: {UserId}", userId);
-            // Return default preferences if not found
-            return new UserWeatherPreference { UserId = userId };
+            return MapPreference(response.Item);
         }
         catch (Exception ex)
         {
@@ -220,8 +244,45 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
     {
         try
         {
-            // TODO: Implement DynamoDB put item
-            await Task.Delay(0);
+            if (string.IsNullOrWhiteSpace(preference.UserId))
+            {
+                _logger.LogWarning("SaveUserPreferencesAsync called with empty userId");
+                return;
+            }
+
+            preference.LastUpdated = DateTime.UtcNow;
+
+            var item = new Dictionary<string, AttributeValue>
+            {
+                ["UserId"] = new AttributeValue { S = preference.UserId },
+                ["TemperatureUnit"] = new AttributeValue
+                {
+                    S = string.IsNullOrWhiteSpace(preference.TemperatureUnit)
+                        ? "Celsius"
+                        : preference.TemperatureUnit
+                },
+                ["LastUpdated"] = new AttributeValue
+                {
+                    N = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)
+                }
+            };
+
+            var favorites = preference.FavoriteCities
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (favorites.Count > 0)
+            {
+                item["FavoriteCities"] = new AttributeValue { SS = favorites };
+            }
+
+            await _dynamoDb.PutItemAsync(new PutItemRequest
+            {
+                TableName = _tableName,
+                Item = item
+            });
             
             _logger.LogInformation("Saved preferences for user: {UserId}", preference.UserId);
         }
@@ -242,8 +303,27 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
     {
         try
         {
-            // TODO: Implement DynamoDB update
-            await Task.Delay(0);
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(city))
+            {
+                _logger.LogWarning("AddFavoriteCityAsync called with invalid input");
+                return;
+            }
+
+            var normalizedCity = city.Trim();
+            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+
+            await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = _tableName,
+                Key = BuildUserKey(userId),
+                UpdateExpression = "ADD FavoriteCities :citySet SET LastUpdated = :lastUpdated, TemperatureUnit = if_not_exists(TemperatureUnit, :defaultUnit)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":citySet"] = new AttributeValue { SS = new List<string> { normalizedCity } },
+                    [":lastUpdated"] = new AttributeValue { N = unixNow },
+                    [":defaultUnit"] = new AttributeValue { S = "Celsius" }
+                }
+            });
             
             _logger.LogInformation("Added favorite city {City} for user: {UserId}", city, userId);
         }
@@ -264,8 +344,27 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
     {
         try
         {
-            // TODO: Implement DynamoDB update
-            await Task.Delay(0);
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(city))
+            {
+                _logger.LogWarning("RemoveFavoriteCityAsync called with invalid input");
+                return;
+            }
+
+            var normalizedCity = city.Trim();
+            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+
+            await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = _tableName,
+                Key = BuildUserKey(userId),
+                UpdateExpression = "DELETE FavoriteCities :citySet SET LastUpdated = :lastUpdated, TemperatureUnit = if_not_exists(TemperatureUnit, :defaultUnit)",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":citySet"] = new AttributeValue { SS = new List<string> { normalizedCity } },
+                    [":lastUpdated"] = new AttributeValue { N = unixNow },
+                    [":defaultUnit"] = new AttributeValue { S = "Celsius" }
+                }
+            });
             
             _logger.LogInformation("Removed favorite city {City} for user: {UserId}", city, userId);
         }
@@ -273,5 +372,57 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
         {
             _logger.LogError(ex, "Error removing favorite city for user: {UserId}", userId);
         }
+    }
+
+    private static Dictionary<string, AttributeValue> BuildUserKey(string userId) =>
+        new()
+        {
+            ["UserId"] = new AttributeValue { S = userId }
+        };
+
+    private static UserWeatherPreference MapPreference(Dictionary<string, AttributeValue> item)
+    {
+        var userId = item.TryGetValue("UserId", out var userIdAttr) ? userIdAttr.S ?? string.Empty : string.Empty;
+        var temperatureUnit = item.TryGetValue("TemperatureUnit", out var unitAttr) ? unitAttr.S ?? "Celsius" : "Celsius";
+
+        var favorites = new List<string>();
+        if (item.TryGetValue("FavoriteCities", out var citiesAttr))
+        {
+            if (citiesAttr.SS != null && citiesAttr.SS.Count > 0)
+            {
+                favorites.AddRange(citiesAttr.SS);
+            }
+            else if (citiesAttr.L != null && citiesAttr.L.Count > 0)
+            {
+                favorites.AddRange(
+                    citiesAttr.L
+                        .Where(v => !string.IsNullOrWhiteSpace(v.S))
+                        .Select(v => v.S!));
+            }
+        }
+
+        var lastUpdated = DateTime.UtcNow;
+        if (item.TryGetValue("LastUpdated", out var updatedAttr))
+        {
+            if (!string.IsNullOrWhiteSpace(updatedAttr.N) &&
+                long.TryParse(updatedAttr.N, NumberStyles.Integer, CultureInfo.InvariantCulture, out var unixSeconds))
+            {
+                lastUpdated = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).UtcDateTime;
+            }
+            else if (!string.IsNullOrWhiteSpace(updatedAttr.S) &&
+                     DateTime.TryParse(updatedAttr.S, CultureInfo.InvariantCulture,
+                         DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+            {
+                lastUpdated = parsed;
+            }
+        }
+
+        return new UserWeatherPreference
+        {
+            UserId = userId,
+            FavoriteCities = favorites.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            TemperatureUnit = temperatureUnit,
+            LastUpdated = lastUpdated
+        };
     }
 }

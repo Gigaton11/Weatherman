@@ -1,20 +1,23 @@
 @{
     ViewData["Title"] = "Privacy Policy";
 }
-<h1>@ViewData["Title"]</h1>
 
-<p>This is a sample privacy policy for the Weather Dashboard application.</p>
+<div class="page-section">
+    <h1 class="h2 mb-3">@ViewData["Title"]</h1>
 
-<h2>Data Collection</h2>
-<p>We collect weather search queries to improve our service. Your location data is only used for weather lookups and is not stored permanently.</p>
+    <p>This is a sample privacy policy for the Weather Dashboard application.</p>
 
-<h2>AWS Services</h2>
-<p>This application uses AWS services including:</p>
-<ul>
-    <li>DynamoDB for storing user preferences</li>
-    <li>ElastiCache for performance optimization</li>
-    <li>CloudWatch for monitoring and logging</li>
-</ul>
+    <h2 class="h5 mt-4">Data Collection</h2>
+    <p>We collect weather search queries to improve our service. Your location data is only used for weather lookups and is not stored permanently.</p>
 
-<h2>Contact Us</h2>
-<p>For privacy concerns, please contact us at privacy@weatherdashboard.app</p>
+    <h2 class="h5 mt-4">AWS Services</h2>
+    <p>This application uses AWS services including:</p>
+    <ul>
+        <li>DynamoDB for storing user preferences</li>
+        <li>ElastiCache for performance optimization</li>
+        <li>CloudWatch for monitoring and logging</li>
+    </ul>
+
+    <h2 class="h5 mt-4">Contact Us</h2>
+    <p class="mb-0">For privacy concerns, please contact us at privacy@weatherdashboard.app</p>
+</div>

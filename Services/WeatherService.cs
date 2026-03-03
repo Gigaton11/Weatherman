@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using Serilog;
 using WeatherDashboard.Models;
 
@@ -165,6 +166,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
     private readonly IConfiguration _configuration;                // For reading base URL
     private readonly string _baseUrl;                              // API base URL
     private readonly string _apiKey;                               // API key for authentication
+    private static readonly Dictionary<string, string> CountryAliases = BuildCountryAliasMap();
     /// <summary>
     /// Constructor: Set up API client with configuration
     /// API key is fetched from:
@@ -191,8 +193,15 @@ public class OpenWeatherMapClient : IWeatherApiClient
         // 1. AWS Secrets Manager (production) - most secure
         // 2. Configuration file (development) - convenience
         // In production, API key is never stored in config files
-        _apiKey = secretsManager.GetSecretAsync("weather-dashboard/openweather-api-key").Result 
-            ?? _configuration["WeatherApi:ApiKey"] ?? string.Empty;
+        var configuredApiKey = _configuration["WeatherApi:ApiKey"];
+        var secretName = _configuration["WeatherApi:ApiKeySecretName"]
+            ?? "weather-dashboard/openweather-api-key";
+
+        // Prefer explicit local/dev key. If missing, resolve once from Secrets Manager
+        // during service construction so all requests share the same key value.
+        _apiKey = !string.IsNullOrWhiteSpace(configuredApiKey)
+            ? configuredApiKey
+            : (secretsManager.GetSecretAsync(secretName).Result ?? string.Empty);
     }
 
     /// <summary>
@@ -209,7 +218,10 @@ public class OpenWeatherMapClient : IWeatherApiClient
             // Query format: "city,country" or just "city"
             // Example: "London,GB" or "London"
             // Uri.EscapeDataString handles special characters safely
-            var query = country != null ? $"{city},{country}" : city;
+            var (normalizedCity, normalizedCountryCode) = NormalizeLocationInput(city, country);
+            var query = !string.IsNullOrWhiteSpace(normalizedCountryCode)
+                ? $"{normalizedCity},{normalizedCountryCode}"
+                : normalizedCity;
             var url = $"{_baseUrl}/weather?q={Uri.EscapeDataString(query)}&appid={_apiKey}&units=metric";
 
             // ─────────────────────────────────────────────────────────────────────
@@ -242,6 +254,93 @@ public class OpenWeatherMapClient : IWeatherApiClient
             _logger.LogError(ex, "Error retrieving weather for {City}", city);
             return null;
         }
+    }
+
+    private static (string City, string? CountryCode) NormalizeLocationInput(string city, string? country)
+    {
+        var normalizedCity = city.Trim();
+        var normalizedCountry = string.IsNullOrWhiteSpace(country) ? null : country.Trim();
+
+        // Supports input like "Athens, Greece" in the city field when country is empty.
+        if (string.IsNullOrWhiteSpace(normalizedCountry) && normalizedCity.Contains(','))
+        {
+            var parts = normalizedCity.Split(',', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2)
+            {
+                normalizedCity = parts[0];
+                normalizedCountry = parts[1];
+            }
+        }
+
+        var countryCode = ResolveCountryCode(normalizedCountry);
+        return (normalizedCity, countryCode);
+    }
+
+    private static string? ResolveCountryCode(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country))
+            return null;
+
+        var key = NormalizeCountryKey(country);
+        if (CountryAliases.TryGetValue(key, out var code))
+            return code;
+
+        return country.Length == 2 ? country.ToUpperInvariant() : country;
+    }
+
+    private static Dictionary<string, string> BuildCountryAliasMap()
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        void AddAlias(string alias, string code)
+        {
+            var key = NormalizeCountryKey(alias);
+            if (!map.ContainsKey(key))
+                map[key] = code;
+        }
+
+        AddAlias("UK", "GB");
+        AddAlias("U.K.", "GB");
+        AddAlias("England", "GB");
+        AddAlias("USA", "US");
+        AddAlias("U.S.", "US");
+        AddAlias("U.S.A.", "US");
+        AddAlias("Greece", "GR");
+        AddAlias("Hellas", "GR");
+        AddAlias("Ellada", "GR");
+        AddAlias("Ελλάδα", "GR");
+
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            RegionInfo region;
+            try
+            {
+                region = new RegionInfo(culture.Name);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var code = region.TwoLetterISORegionName.ToUpperInvariant();
+            AddAlias(region.TwoLetterISORegionName, code);
+            AddAlias(region.ThreeLetterISORegionName, code);
+            AddAlias(region.EnglishName, code);
+            AddAlias(region.NativeName, code);
+            AddAlias(region.Name, code);
+        }
+
+        return map;
+    }
+
+    private static string NormalizeCountryKey(string value)
+    {
+        var normalized = value.Trim().ToLowerInvariant();
+        normalized = normalized.Replace(".", string.Empty);
+        normalized = normalized.Replace("'", string.Empty);
+        normalized = normalized.Replace("’", string.Empty);
+        normalized = normalized.Replace("-", " ");
+        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     /// <summary>
@@ -295,7 +394,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
         return new WeatherData
         {
             City = response.Name ?? string.Empty,                                    // City name from API
-            Country = string.Empty,                                                   // API doesn't provide country
+            Country = response.Sys?.Country ?? string.Empty,                          // Country code (e.g., FR)
             Latitude = response.Coord?.Lat ?? 0,                                     // Latitude, default 0
             Longitude = response.Coord?.Lon ?? 0,                                    // Longitude, default 0
             Temperature = response.MainData.Temp,                                    // Current temperature
@@ -341,15 +440,14 @@ public class SecretsManagerService : ISecretsManagerService
     /// TODO: Implement AWS Secrets Manager integration
     /// Currently returns null (falls back to configuration file)
     /// </summary>
-    public async Task<string?> GetSecretAsync(string secretName)
+    public Task<string?> GetSecretAsync(string secretName)
     {
         // TODO: Implement AWS Secrets Manager integration
         // Example implementation:
         // var client = new AmazonSecretsManagerClient();
         // var response = await client.GetSecretValueAsync(new GetSecretValueRequest { SecretId = secretName });
         // return response.SecretString;
-        
-        await Task.Delay(0);  // Satisfy async requirement
-        return null;          // Currently returns null, falls back to config
+
+        return Task.FromResult<string?>(null);
     }
 }

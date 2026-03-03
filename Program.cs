@@ -1,5 +1,7 @@
 using Serilog;
 using WeatherDashboard.Services;
+using Amazon;
+using Amazon.DynamoDBv2;
 
 // ============================================================================
 // APPLICATION ENTRY POINT - Weather Dashboard
@@ -30,6 +32,12 @@ builder.Host.UseSerilog();
 builder.Services.AddControllersWithViews();  // MVC controllers and view support
 builder.Services.AddHttpClient();            // HTTP client factory for API calls
 builder.Services.AddMemoryCache();           // In-memory caching (local development)
+builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
+{
+    var regionName = builder.Configuration["AWS:Region"] ?? "eu-north-1";
+    var region = RegionEndpoint.GetBySystemName(regionName);
+    return new AmazonDynamoDBClient(region);
+});
 
 // ─────────────────────────────────────────────────────────────────────────
 // APPLICATION SERVICES DEPENDENCY INJECTION

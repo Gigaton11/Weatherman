@@ -1,339 +1,117 @@
-# WeatherMan 🌤️
+# Weather Dashboard
 
-A modern ASP.NET Core web application for real-time weather information with intelligent caching and AWS integration.
+ASP.NET Core MVC weather application with OpenWeatherMap integration, caching, and DynamoDB-backed user favorites.
 
 ## Features
 
-✨ **Core Features:**
-- 🔍 Real-time weather search by city name
-- 📍 Coordinate-based weather lookup (latitude/longitude)
-- 🗂️ Smart in-memory caching (30-minute TTL)
-- 🔐 Secure API key management via AWS Secrets Manager
-- 📊 Structured logging with Serilog
-- 💾 User preferences stored in DynamoDB
+- Search current weather by city, with optional country support.
+- Country normalization (examples: `UK` -> `GB`, `USA` -> `US`).
+- Cache-aside weather retrieval (`ICacheService`) with configurable TTL.
+- Favorite cities persisted per browser user id in DynamoDB.
+- Responsive UI with improved readability and a subtle sunset background.
 
-✅ **Technologies:**
-- **Framework:** ASP.NET Core 8.0+
-- **Language:** C# 12
-- **Web:** Razor Pages + MVC
-- **Logging:** Serilog (console + daily rolling files)
-- **Caching:** IMemoryCache (in-memory) → Amazon ElastiCache (production)
-- **Database:** AWS DynamoDB (user preferences)
-- **Secrets:** AWS Secrets Manager
-- **API:** OpenWeatherMap (https://openweathermap.org)
+## Stack
+
+- .NET 10 (`net10.0`)
+- ASP.NET Core MVC + Razor
+- Serilog (console + file)
+- AWS SDK (DynamoDB, Secrets Manager, CloudWatch package reference)
+- OpenWeatherMap API
 
 ## Project Structure
 
-```
-WeatherDashboard/
-├── Controllers/          # MVC controllers handling HTTP requests
-│   └── HomeController.cs # Weather search and display logic
-├── Services/            # Business logic layer
-│   ├── WeatherService.cs           # Main orchestration (caching + API)
-│   ├── CacheService.cs             # Cache abstraction
-│   ├── ServiceInterfaces.cs        # Service contracts
-│   └── WeatherModels.cs           # Domain models
-├── Models/              # View models and data classes
-│   └── WeatherModels.cs # Weather data, API responses
-├── Views/               # Razor view templates
-│   ├── Home/
-│   │   ├── Index.cshtml           # Search form
-│   │   ├── WeatherDetail.cshtml    # Weather results
-│   │   └── Privacy.cshtml
-│   └── Shared/
-│       ├── _Layout.cshtml         # Master layout
-│       └── Error.cshtml
-├── wwwroot/            # Static assets
-│   ├── css/site.css
-│   ├── js/
-│   └── lib/
-├── Properties/         # Launch settings
-├── Program.cs          # Application entry point
-├── appsettings.json    # Configuration (production)
-└── appsettings.Development.json  # Configuration (development)
+```text
+Controllers/
+Models/
+Services/
+Views/
+wwwroot/
+Program.cs
+appsettings.json
 ```
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
-- .NET 10.0 SDK or later
-- Visual Studio Code
-- Git
-- OpenWeatherMap API key (free tier available)
+- .NET 10 SDK
+- OpenWeatherMap API key
+- AWS credentials/profile if using DynamoDB/Secrets Manager in non-local environments
 
-### Local Development Setup
+## Local Setup
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Gigaton11/WeatherMan.git
-   cd WeatherMan/WeatherDashboard
-   ```
+1. Restore packages:
 
-2. **Get OpenWeatherMap API Key:**
-   - Sign up: https://openweathermap.org/api
-   - Go to API Keys section
-   - Copy your free API key
-
-3. **Configure for development:**
-   ```bash
-   dotnet restore
-   ```
-
-4. **Set API Key (choose one):**
-   
-   **Option A: appsettings.Development.json**
-   ```json
-   {
-     "WeatherApi": {
-       "ApiKey": "your-openweathermap-api-key-here"
-     },
-     "AWS": {
-       "Region": "us-east-1"
-     },
-     "Caching": {
-       "DurationMinutes": 30
-     }
-   }
-   ```
-
-   **Option B: AWS Secrets Manager (recommended for production)**
-   ```bash
-   aws configure
-   aws secretsmanager create-secret \
-     --name weather-dashboard/openweather-api-key \
-     --secret-string "your-api-key-here" \
-     --region us-east-1
-   ```
-
-5. **Run locally:**
-   ```bash
-   dotnet build
-   dotnet run
-   ```
-   
-   Open browser: https://localhost:7001
-
-## API Endpoints
-
-### Weather Search
-- **POST** `/Home/SearchWeather` - Search weather by city
-  - Parameters: `city` (required), `country` (optional)
-  - Returns: Weather details or error message
-
-### Pages
-- **GET** `/Home/Index` - Search form
-- **GET** `/Home/Privacy` - Privacy policy
-- **GET** `/Home/Error` - Error page
-
-## AWS Deployment Setup
-
-### Prerequisites for AWS
-Ensure you have:
-- AWS Account
-- AWS CLI configured with credentials
-- IAM permissions for DynamoDB, Secrets Manager, CloudWatch, Elastic Beanstalk
-
-### Step 1: Create DynamoDB Table
 ```bash
-aws dynamodb create-table \
-  --table-name UserWeatherPreferences \
-  --attribute-definitions AttributeName=UserId,AttributeType=S \
-  --key-schema AttributeName=UserId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region us-east-1
+dotnet restore
 ```
 
-### Step 2: Store API Key in Secrets Manager
+2. Configure API key (recommended via user-secrets):
+
 ```bash
-aws secretsmanager create-secret \
-  --name weather-dashboard/openweather-api-key \
-  --secret-string "your-openweathermap-api-key" \
-  --region us-east-1
+dotnet user-secrets init
+dotnet user-secrets set "WeatherApi:ApiKey" "YOUR_OPENWEATHERMAP_KEY"
 ```
 
-### Step 3: Create CloudWatch Log Group (optional)
+3. Build and run:
+
 ```bash
-aws logs create-log-group \
-  --log-group-name /aws/weather-dashboard \
-  --region us-east-1
+dotnet build
+dotnet run
 ```
 
-### Step 4: Deploy to Elastic Beanstalk
-```bash
-# Install EB CLI
-pip install awsebcli
-
-# Initialize Elastic Beanstalk
-eb init -p "dotnet core on 64bit amazon linux 2" WeatherMan
-
-# Create environment and deploy
-eb create weather-prod
-eb deploy
-```
-
-### Step 5: Check Deployment
-```bash
-# View environment status
-eb status
-
-# View logs
-eb logs
-
-# Open in browser
-eb open
-```
+4. Open the local URL shown in terminal (typically `https://localhost:7001`).
 
 ## Configuration
 
-### Environment Variables / appsettings.json
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information"
-    }
-  },
-  "WeatherApi": {
-    "BaseUrl": "https://api.openweathermap.org/data/2.5",
-    "ApiKey": "your-key-here"  // Development only
-  },
-  "AWS": {
-    "Region": "us-east-1",
-    "DynamoDB": {
-      "TableName": "UserWeatherPreferences"
-    }
-  },
-  "Caching": {
-    "DurationMinutes": 30
-  }
-}
-```
+### `WeatherApi`
 
-## Code Architecture
+- `BaseUrl`: OpenWeatherMap base URL.
+- `ApiKey`: Local/dev API key (preferred in user-secrets).
+- `ApiKeySecretName`: AWS Secrets Manager key name fallback.
+- `TimeoutSeconds`: intended timeout configuration.
 
-### Service Layer Pattern
-The application uses dependency injection with service interfaces:
+### `Caching`
 
-```
-Controller → IWeatherService → IWeatherApiClient + ICacheService
-                           ↓
-                  OpenWeatherMapClient
-                  + AmazonElastiCacheService
-```
+- `DurationMinutes`: cache expiration for weather responses.
 
-### Cache-Aside Pattern
-```
-1. Check cache for weather data
-   ↓
-2. If miss: Call OpenWeatherMap API
-   ↓
-3. Store result in cache (30 min TTL)
-   ↓
-4. Return data with IsFromCache flag
-```
+### `AWS`
 
-## Development Notes
+- `Region`: AWS region for clients.
+- `DynamoDB:TableName`: table used by `DynamoDbUserPreferencesService`.
 
-### Adding Comments to Code
-Each file includes detailed comments explaining:
-- Architecture and design patterns
-- Class/method responsibilities
-- Data flow and transformations
-- Error handling approach
-- AWS integration points
+## Security Notes
 
-Run this to understand the codebase:
+- `SearchWeather`, `AddFavoriteCity`, and `RemoveFavoriteCity` are POST endpoints with antiforgery validation.
+- Razor forms posting to these actions include antiforgery tokens.
+- User id cookie is `HttpOnly` and `SameSite=Lax`.
+
+## Useful Commands
+
 ```bash
-# Search for implementation details
-grep -r "TODO:" .
-grep -r "DynamoDB" .
-grep -r "Secrets Manager" .
+dotnet build WeatherDashboard.csproj /p:UseAppHost=false
+dotnet run
 ```
 
-### Common Tasks
+## Release / Push Checklist
 
-**Build for production:**
+Repository target:
+- `https://github.com/Gigaton11/Weatherman.git`
+
+From repo root:
+
 ```bash
-dotnet publish -c Release -o ./publish
+git status
+git add .
+git commit -m "Finalize UI/UX polish, security checks, and documentation"
+git push origin main
 ```
 
-**Run tests (when added):**
+If your existing remote URL differs only by casing/name, update it:
+
 ```bash
-dotnet test
+git remote set-url origin https://github.com/Gigaton11/Weatherman.git
 ```
 
-**Update NuGet packages:**
-```bash
-dotnet outdated
-dotnet upgrade
-```
+## Known Follow-ups
 
-## Troubleshooting
-
-### "API key not found"
-- Check `appsettings.Development.json` has correct API key
-- Verify OpenWeatherMap account is activated (check email)
-- Wait ~2 hours for free tier API key activation
-
-### "Unable to find DynamoDB table"
-```bash
-# List tables
-aws dynamodb list-tables --region us-east-1
-
-# Verify table has data
-aws dynamodb scan --table-name UserWeatherPreferences
-```
-
-### Cache not working
-- Check logs: `tail -f logs/weather-dashboard-*.txt`
-- Verify memory cache is registered in Program.cs
-- Monitor cache hits/misses in debug logs (LogLevel: Debug)
-
-### Secrets Manager errors
-- Verify secret exists: `aws secretsmanager get-secret-value --secret-id weather-dashboard/openweather-api-key`
-- Check IAM permissions for EC2 role
-
-## Performance Tuning
-
-| Metric | Current | Optimized |
-|--------|---------|-----------|
-| Cache TTL | 30 min | Configurable |
-| Log Level | Information | Debug (dev) / Warning (prod) |
-| Cache Backend | In-memory | Redis (ElastiCache) |
-| HTTP Timeout | Default | Custom (configurable) |
-
-**Recommendations:**
-- Use ElastiCache Redis for multi-instance deployments
-- Enable CloudWatch custom metrics for cache hit rates
-- Set up alarms for API rate limit approaching
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Resources
-
-- **OpenWeatherMap API:** https://openweathermap.org/api
-- **AWS SDK for .NET:** https://aws.amazon.com/sdk-for-net/
-- **ASP.NET Core Docs:** https://learn.microsoft.com/en-us/aspnet/core/
-- **DynamoDB Guide:** https://docs.aws.amazon.com/dynamodb/
-- **Serilog:** https://serilog.net/
-
-## Support
-
-For issues, questions, or suggestions:
-1. Check existing GitHub Issues
-2. Search troubleshooting section above
-3. Create a new GitHub Issue with details
-
----
-
-**Happy Weather Forecasting!** 🌦️
+- `SecretsManagerService` is still a stub.
+- `TimeoutSeconds` exists in config but should be wired explicitly into `HttpClient` timeout setup.

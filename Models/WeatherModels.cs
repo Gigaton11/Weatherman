@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace WeatherDashboard.Models;
 
 // ============================================================================
@@ -74,15 +76,33 @@ public class WeatherSearchRequest
 /// </summary>
 public class OpenWeatherMapResponse
 {
+    [JsonPropertyName("coord")]
     public Coord? Coord { get; set; }         // Geographic coordinates
+    [JsonPropertyName("weather")]
     public List<Weather>? Weather { get; set; }  // Weather conditions array
-    public string? Main { get; set; }         // (Unused field from API)
+    [JsonPropertyName("main")]
     public MainData? MainData { get; set; }   // Main weather data (temperature, humidity, etc)
+    [JsonPropertyName("visibility")]
     public int? Visibility { get; set; }      // Visibility distance in meters
+    [JsonPropertyName("wind")]
     public Wind? Wind { get; set; }           // Wind speed and direction
+    [JsonPropertyName("sys")]
+    public Sys? Sys { get; set; }             // Country and sunrise/sunset metadata
+    [JsonPropertyName("dt")]
     public int? Dt { get; set; }              // Data calculation timestamp (Unix)
+    [JsonPropertyName("name")]
     public string? Name { get; set; }         // City name
+    [JsonPropertyName("cod")]
     public int? Cod { get; set; }             // HTTP status code from API
+}
+
+/// <summary>
+/// System metadata from OpenWeatherMap
+/// </summary>
+public class Sys
+{
+    [JsonPropertyName("country")]
+    public string? Country { get; set; }      // ISO 3166 country code (e.g., "FR")
 }
 
 /// <summary>
@@ -90,7 +110,9 @@ public class OpenWeatherMapResponse
 /// </summary>
 public class Coord
 {
+    [JsonPropertyName("lon")]
     public double Lon { get; set; }  // Longitude (-180 to 180)
+    [JsonPropertyName("lat")]
     public double Lat { get; set; }  // Latitude (-90 to 90)
 }
 
@@ -100,9 +122,13 @@ public class Coord
 /// </summary>
 public class Weather
 {
+    [JsonPropertyName("id")]
     public int Id { get; set; }                  // Weather condition ID (for icon mapping)
+    [JsonPropertyName("main")]
     public string Main { get; set; } = string.Empty;        // Main weather type ("Clear", "Clouds", "Rain")
+    [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;  // Detailed description ("Partly cloudy", "Light rain")
+    [JsonPropertyName("icon")]
     public string Icon { get; set; } = string.Empty;         // Icon code ("04d" = partly cloudy day)
 }
 
@@ -111,11 +137,17 @@ public class Weather
 /// </summary>
 public class MainData
 {
+    [JsonPropertyName("temp")]
     public double Temp { get; set; }          // Current temperature (Celsius)
+    [JsonPropertyName("feels_like")]
     public double FeelsLike { get; set; }     // "Feels like" temperature (Celsius)
+    [JsonPropertyName("temp_min")]
     public double TempMin { get; set; }       // Minimum temperature (Celsius)
+    [JsonPropertyName("temp_max")]
     public double TempMax { get; set; }       // Maximum temperature (Celsius)
+    [JsonPropertyName("pressure")]
     public int Pressure { get; set; }         // Atmospheric pressure (hPa)
+    [JsonPropertyName("humidity")]
     public int Humidity { get; set; }         // Relative humidity (0-100%)
 }
 
@@ -124,8 +156,11 @@ public class MainData
 /// </summary>
 public class Wind
 {
+    [JsonPropertyName("speed")]
     public double Speed { get; set; }   // Wind speed (m/s)
+    [JsonPropertyName("deg")]
     public int? Deg { get; set; }       // Wind direction (degrees, 0-360)
+    [JsonPropertyName("gust")]
     public double? Gust { get; set; }   // Wind gust speed (m/s)
 }
 

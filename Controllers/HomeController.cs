@@ -4,122 +4,144 @@ using WeatherDashboard.Services;
 
 namespace WeatherDashboard.Controllers;
 
-// ============================================================================
-// HOME CONTROLLER
-// ============================================================================
-// Handles all user interactions for the weather dashboard:
-// - Displays search form
-// - Processes weather searches
-// - Shows weather details
-// 
-// Dependencies (injected via constructor):
-// - IWeatherService: Gets weather data (with caching)
-// - ILogger: Logs controller actions and errors
-
 public class HomeController : Controller
 {
-    private readonly IWeatherService _weatherService;  // Service for fetching weather data
-    private readonly ILogger<HomeController> _logger;   // Logger for this controller
+    private readonly IWeatherService _weatherService;
+    private readonly IUserPreferencesService _userPreferencesService;
+    private readonly ILogger<HomeController> _logger;
 
-    /// <summary>
-    /// Constructor: Dependencies are injected by ASP.NET Core dependency injection
-    /// </summary>
     public HomeController(
         IWeatherService weatherService,
+        IUserPreferencesService userPreferencesService,
         ILogger<HomeController> logger)
     {
         _weatherService = weatherService;
+        _userPreferencesService = userPreferencesService;
         _logger = logger;
     }
 
-    /// <summary>
-    /// GET /Home/Index
-    /// Displays the weather search page (empty form)
-    /// </summary>
     public async Task<IActionResult> Index()
     {
         _logger.LogInformation("Home index page accessed");
-        return View();  // Renders Views/Home/Index.cshtml
+        await LoadFavoriteCitiesAsync();
+        return View();
     }
 
-    /// <summary>
-    /// POST /Home/SearchWeather
-    /// Processes weather search form submission
-    /// Parameters:
-    /// - city: City name (required)
-    /// - country: Country code (optional, e.g., "US", "FR")
-    /// </summary>
-    [HttpPost]  // Only accepts POST requests
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> SearchWeather(string city, string? country)
     {
-        // ─────────────────────────────────────────────────────────────────────
-        // INPUT VALIDATION
-        // ─────────────────────────────────────────────────────────────────────
         if (string.IsNullOrWhiteSpace(city))
         {
-            // Add error to ModelState so view can display it
             ModelState.AddModelError("city", "Please enter a city name");
-            return View("Index");  // Return to search form
+            await LoadFavoriteCitiesAsync();
+            return View("Index");
         }
 
         try
         {
-            // ─────────────────────────────────────────────────────────────────────
-            // FETCH WEATHER DATA
-            // ─────────────────────────────────────────────────────────────────────
-            // This calls WeatherService which:
-            // 1. Checks cache first (Redis/ElastiCache in production)
-            // 2. If not cached, calls OpenWeatherMap API
-            // 3. Caches the result for 30 minutes
             var weather = await _weatherService.GetWeatherByCityAsync(city, country);
 
             if (weather == null)
             {
-                // Weather data not found for this location
                 ModelState.AddModelError("", "Could not find weather data for this location");
+                await LoadFavoriteCitiesAsync();
                 return View("Index");
             }
 
-            // ─────────────────────────────────────────────────────────────────────
-            // SUCCESS - Display weather details
-            // ─────────────────────────────────────────────────────────────────────
-            // weather.IsFromCache will be true if it came from cache
-            return View("WeatherDetail", weather);  // Renders Views/Home/WeatherDetail.cshtml
+            return View("WeatherDetail", weather);
         }
         catch (Exception ex)
         {
-            // ─────────────────────────────────────────────────────────────────────
-            // ERROR HANDLING
-            // ─────────────────────────────────────────────────────────────────────
-            // Log the full exception for debugging
             _logger.LogError(ex, "Error searching weather for {City}", city);
-            // Show user-friendly error message
             ModelState.AddModelError("", "An error occurred while fetching weather data");
+            await LoadFavoriteCitiesAsync();
             return View("Index");
         }
     }
 
-    /// <summary>
-    /// GET /Home/Privacy
-    /// Shows privacy policy information
-    /// </summary>
     public IActionResult Privacy()
     {
-        return View();  // Renders Views/Home/Privacy.cshtml
+        return View();
     }
 
-    /// <summary>
-    /// GET /Home/Error
-    /// Displays error page when exceptions occur
-    /// ResponseCache ensures no caching (always fresh error page)
-    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddFavoriteCity(string city, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+        {
+            TempData["ErrorMessage"] = "City is required to add a favorite.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var userId = GetOrCreateUserId();
+        var favoriteValue = BuildFavoriteValue(city, country);
+
+        await _userPreferencesService.AddFavoriteCityAsync(userId, favoriteValue);
+        TempData["SuccessMessage"] = $"Added '{favoriteValue}' to favorites.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveFavoriteCity(string city, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+            return RedirectToAction(nameof(Index));
+
+        var userId = GetOrCreateUserId();
+        var favoriteValue = BuildFavoriteValue(city, country);
+
+        await _userPreferencesService.RemoveFavoriteCityAsync(userId, favoriteValue);
+        TempData["SuccessMessage"] = $"Removed '{favoriteValue}' from favorites.";
+        return RedirectToAction(nameof(Index));
+    }
+
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
-        return View(new ErrorViewModel 
-        { 
-            RequestId = HttpContext.TraceIdentifier,  // Unique ID for this request
+        return View(new ErrorViewModel
+        {
+            RequestId = HttpContext.TraceIdentifier,
             Message = "An unexpected error occurred"
         });
+    }
+
+    private async Task LoadFavoriteCitiesAsync()
+    {
+        var userId = GetOrCreateUserId();
+        var preferences = await _userPreferencesService.GetUserPreferencesAsync(userId);
+        ViewBag.FavoriteCities = preferences?.FavoriteCities ?? new List<string>();
+    }
+
+    private string GetOrCreateUserId()
+    {
+        const string cookieName = "wd_user_id";
+        if (Request.Cookies.TryGetValue(cookieName, out var existing) && !string.IsNullOrWhiteSpace(existing))
+            return existing;
+
+        var userId = Guid.NewGuid().ToString("N");
+
+        // Keeps per-browser favorites without requiring authentication.
+        Response.Cookies.Append(cookieName, userId, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            Expires = DateTimeOffset.UtcNow.AddYears(1)
+        });
+
+        return userId;
+    }
+
+    private static string BuildFavoriteValue(string city, string? country)
+    {
+        var cityPart = city.Trim();
+        if (string.IsNullOrWhiteSpace(country))
+            return cityPart;
+
+        return $"{cityPart},{country.Trim().ToUpperInvariant()}";
     }
 }

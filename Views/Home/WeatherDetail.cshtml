@@ -4,27 +4,29 @@
     ViewData["Title"] = $"Weather in {Model.City}";
 }
 
-<div class="container mt-5">
+<div class="page-section">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <div class="card weather-card">
-                <div class="card-body">
+        <div class="col-lg-9 col-xl-8 mx-auto">
+            <div class="card app-card weather-card">
+                <div class="card-body p-4 p-md-5">
                     <div class="row">
-                        <div class="col-md-6">
-                            <h2>@Model.City, @Model.Country</h2>
-                            <h4 class="text-muted">@Model.Description</h4>
+                        <div class="col-md-7">
+                            <h1 class="h2 mb-2">@Model.City, @Model.Country</h1>
+                            <h2 class="h5 text-muted text-capitalize mb-3">@Model.Description</h2>
                             <hr>
-                            <p><strong>Temperature:</strong> @Model.Temperature.ToString("F1")°C</p>
-                            <p><strong>Feels Like:</strong> @Model.FeelsLike.ToString("F1")°C</p>
-                            <p><strong>Humidity:</strong> @Model.Humidity%</p>
-                            <p><strong>Pressure:</strong> @Model.Pressure hPa</p>
-                            <p><strong>Wind Speed:</strong> @Model.WindSpeed.ToString("F1") m/s</p>
+                            <div class="weather-metrics">
+                                <p><strong>Temperature:</strong> @Model.Temperature.ToString("F1")&deg;C</p>
+                                <p><strong>Feels Like:</strong> @Model.FeelsLike.ToString("F1")&deg;C</p>
+                                <p><strong>Humidity:</strong> @Model.Humidity%</p>
+                                <p><strong>Pressure:</strong> @Model.Pressure hPa</p>
+                                <p><strong>Wind Speed:</strong> @Model.WindSpeed.ToString("F1") m/s</p>
+                            </div>
                         </div>
-                        <div class="col-md-6 text-center">
+                        <div class="col-md-5 text-center d-flex align-items-center justify-content-center">
                             <img src="@Model.IconUrl" alt="@Model.Description" class="weather-icon">
                         </div>
                     </div>
-                    
+
                     <div class="mt-4">
                         <small class="text-muted">
                             @if (Model.IsFromCache)
@@ -41,36 +43,14 @@
                 </div>
             </div>
 
-            <div class="mt-4">
+            <div class="mt-4 d-flex flex-wrap gap-2">
+                <form asp-action="AddFavoriteCity" asp-controller="Home" method="post" class="d-inline">
+                    <input type="hidden" name="city" value="@Model.City" />
+                    <input type="hidden" name="country" value="@Model.Country" />
+                    <button type="submit" class="btn btn-outline-primary">Add To Favorites</button>
+                </form>
                 <a href="/" class="btn btn-secondary">Search Another City</a>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-    body {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-    }
-    .container {
-        padding: 20px;
-    }
-    .weather-card {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-    .weather-icon {
-        max-width: 150px;
-        margin: 20px 0;
-    }
-    .weather-card h2 {
-        color: #333;
-        margin-bottom: 10px;
-    }
-    .weather-card p {
-        font-size: 16px;
-        line-height: 1.8;
-    }
-</style>

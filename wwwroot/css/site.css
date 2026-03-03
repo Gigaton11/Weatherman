@@ -1,31 +1,161 @@
-/* Please see documentation at https://docs.microsoft.com/aspnet/core/client-side/bundling-and-minification
-for details on configuring this project to bundle and minify static web assets. */
-
-a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+:root {
+  --bg-top: #ffcf9f;
+  --bg-mid: #f6a7a6;
+  --bg-bottom: #6f87be;
+  --text-primary: #10233f;
+  --text-muted: #51627d;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-border: rgba(16, 35, 63, 0.1);
+  --surface-shadow: 0 12px 30px rgba(16, 35, 63, 0.12);
+  --accent: #0f6db8;
+  --accent-hover: #0d5f9f;
 }
 
-/* Sticky footer styles
--------------------------------------------------- */
 html {
-  font-size: 14px;
-}
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+  font-size: 16px;
 }
 
 body {
-  /* Margin bottom by footer height */
-  margin-bottom: 60px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255, 244, 216, 0.65), rgba(255, 244, 216, 0) 30%),
+    radial-gradient(circle at 75% 22%, rgba(255, 199, 127, 0.4), rgba(255, 199, 127, 0) 32%),
+    linear-gradient(180deg, var(--bg-top) 0%, var(--bg-mid) 45%, var(--bg-bottom) 100%);
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
+
+a.navbar-brand {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.app-navbar {
+  background: rgba(255, 255, 255, 0.74);
+  border-bottom: 1px solid var(--surface-border);
+  backdrop-filter: blur(8px);
+}
+
+.app-navbar .navbar-brand {
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.app-navbar .nav-link {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus-visible {
+  color: var(--accent);
+}
+
+.app-shell {
+  flex: 1;
+  max-width: 960px;
+}
+
+.page-section {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  box-shadow: var(--surface-shadow);
+  padding: 2rem;
+}
+
+.lead {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+}
+
+.app-card {
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(16, 35, 63, 0.06);
+}
+
+.app-alert {
+  border-radius: 12px;
+}
+
+.favorite-item {
+  border: 1px solid var(--surface-border);
+  background: rgba(248, 251, 255, 0.85);
+}
+
+.form-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-control {
+  border-radius: 10px;
+  border-color: rgba(16, 35, 63, 0.18);
+}
+
+.form-control:focus {
+  border-color: rgba(15, 109, 184, 0.5);
+  box-shadow: 0 0 0 0.2rem rgba(15, 109, 184, 0.2);
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.search-btn {
+  min-height: 2.625rem;
+  padding-inline: 1rem;
+}
+
+.weather-card hr {
+  margin: 0.9rem 0 1rem;
+}
+
+.weather-metrics p {
+  margin-bottom: 0.6rem;
+  line-height: 1.6;
+}
+
+.weather-icon {
+  width: min(180px, 100%);
+  height: auto;
+}
+
 .footer {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  white-space: nowrap;
-  line-height: 60px; /* Vertically center the text there */
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--surface-border);
+  padding: 0.85rem 0;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+@media (max-width: 767.98px) {
+  .page-section {
+    padding: 1.15rem;
+    border-radius: 14px;
+  }
+
+  .display-6 {
+    font-size: 1.7rem;
+  }
+
+  .search-btn {
+    min-height: 2.9rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .search-row .col-md-2 {
+    min-width: 8.5rem;
+  }
 }
