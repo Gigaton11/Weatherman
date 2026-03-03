@@ -1,6 +1,6 @@
 # Weather Dashboard
 
-ASP.NET Core MVC weather application with OpenWeatherMap integration, caching, and DynamoDB-backed user favorites.
+ASP.NET Core MVC Weather application with OpenWeatherMap integration, caching, and AWS DynamoDB-backed user favorites.
 
 ## Features
 
