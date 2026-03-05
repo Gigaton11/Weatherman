@@ -97,19 +97,6 @@ dotnet build WeatherDashboard.csproj /p:UseAppHost=false
 dotnet run
 ```
 
-## Release / Push Checklist
-
-Repository target:
-- `https://github.com/Gigaton11/Weatherman.git`
-
-From repo root:
-
-```bash
-git status
-git add .
-git commit -m "Finalize UI/UX polish, security checks, and documentation"
-git push origin main
-```
 
 If your existing remote URL differs only by casing/name, update it:
 
