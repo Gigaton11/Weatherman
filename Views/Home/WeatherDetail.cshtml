@@ -27,6 +27,32 @@
                         </div>
                     </div>
 
+                    @if (Model.NextDaysForecast.Any())
+                    {
+                        <div class="mt-4">
+                            <h3 class="h5 mb-3">Next 2 Days Forecast</h3>
+                            <div class="row g-3">
+                                @foreach (var day in Model.NextDaysForecast)
+                                {
+                                    <div class="col-md-6">
+                                        <div class="border rounded p-3 h-100 bg-light-subtle">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <strong>@day.Date.ToString("dddd, MMM d")</strong>
+                                                @if (!string.IsNullOrWhiteSpace(day.IconUrl))
+                                                {
+                                                    <img src="@day.IconUrl" alt="@day.Description" style="width:48px;height:48px;" />
+                                                }
+                                            </div>
+                                            <div class="text-capitalize">@day.Description</div>
+                                            <div>Min: @day.MinTemperature.ToString("F1")&deg;C</div>
+                                            <div>Max: @day.MaxTemperature.ToString("F1")&deg;C</div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <div class="mt-4">
                         <small class="text-muted">
                             @if (Model.IsFromCache)
