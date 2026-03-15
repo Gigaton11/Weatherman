@@ -8,7 +8,7 @@ ASP.NET Core MVC Weather application with OpenWeatherMap integration, caching, a
 - View a 2-day forecast (daily min/max + summary icon/description) for searched cities.
 - Cache-aside weather retrieval (`ICacheService`) with configurable TTL.
 - Favorite cities persisted per browser user id in DynamoDB.
-- - Country normalization (examples: `UK` -> `GB`, `USA` -> `US`).
+- Country normalization (examples: `UK` -> `GB`, `USA` -> `US`).
 - Responsive UI with improved readability.
 
 ## Stack
