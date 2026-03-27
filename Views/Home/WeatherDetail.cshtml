@@ -27,6 +27,27 @@
                         </div>
                     </div>
 
+                    @if (Model.NextHoursForecast.Any())
+                    {
+                        <div class="mt-4">
+                            <h3 class="h5 mb-3">Next 6 Hours Forecast</h3>
+                            <div class="hourly-forecast-box">
+                                @foreach (var hour in Model.NextHoursForecast)
+                                {
+                                    <div class="hourly-forecast-item">
+                                        <strong class="hourly-forecast-time">@hour.DateTime.ToString("h tt")</strong>
+                                        @if (!string.IsNullOrWhiteSpace(hour.IconUrl))
+                                        {
+                                            <img src="@hour.IconUrl" alt="@hour.Description" class="hourly-forecast-icon" />
+                                        }
+                                        <div class="hourly-forecast-description text-capitalize">@hour.Description</div>
+                                        <div class="hourly-forecast-temperature">@hour.Temperature.ToString("F1")&deg;C</div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     @if (Model.NextDaysForecast.Any())
                     {
                         <div class="mt-4">

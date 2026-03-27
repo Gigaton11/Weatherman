@@ -17,7 +17,16 @@ public class WeatherData
     public double WindSpeed { get; set; }
     public DateTime RetrievedAt { get; set; } = DateTime.UtcNow;
     public bool IsFromCache { get; set; }
+    public List<HourlyForecast> NextHoursForecast { get; set; } = new();
     public List<ForecastDay> NextDaysForecast { get; set; } = new();
+}
+
+public class HourlyForecast
+{
+    public DateTime DateTime { get; set; }
+    public double Temperature { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public string IconUrl { get; set; } = string.Empty;
 }
 
 public class ForecastDay
@@ -27,6 +36,12 @@ public class ForecastDay
     public double MaxTemperature { get; set; }
     public string Description { get; set; } = string.Empty;
     public string IconUrl { get; set; } = string.Empty;
+}
+
+public class ForecastSummary
+{
+    public List<HourlyForecast> NextHoursForecast { get; set; } = new();
+    public List<ForecastDay> NextDaysForecast { get; set; } = new();
 }
 
 public class WeatherSearchRequest

@@ -38,11 +38,11 @@ public class WeatherService : IWeatherService
         var forecastCacheKey = $"forecast:{normalizedCity}:{normalizedCountry}";
         var cacheDuration = TimeSpan.FromMinutes(_configuration.GetValue<int>("Caching:DurationMinutes", 30));
 
-        var forecast = await _cacheService.GetAsync<List<ForecastDay>>(forecastCacheKey);
+        var forecast = await _cacheService.GetAsync<ForecastSummary>(forecastCacheKey);
         if (forecast == null)
         {
             forecast = await _apiClient.GetForecastByCityAsync(city, country);
-            if (forecast.Count > 0)
+            if (forecast.NextHoursForecast.Count > 0 || forecast.NextDaysForecast.Count > 0)
                 await _cacheService.SetAsync(forecastCacheKey, forecast, cacheDuration);
         }
 
@@ -50,7 +50,8 @@ public class WeatherService : IWeatherService
         if (cachedData != null)
         {
             cachedData.IsFromCache = true;
-            cachedData.NextDaysForecast = forecast ?? new List<ForecastDay>();
+            cachedData.NextHoursForecast = forecast?.NextHoursForecast ?? new List<HourlyForecast>();
+            cachedData.NextDaysForecast = forecast?.NextDaysForecast ?? new List<ForecastDay>();
             _logger.LogInformation("Weather data retrieved from cache for {City}", city);
             return cachedData;
         }
@@ -58,7 +59,8 @@ public class WeatherService : IWeatherService
         var weatherData = await _apiClient.GetWeatherByCityAsync(city, country);
         if (weatherData != null)
         {
-            weatherData.NextDaysForecast = forecast ?? new List<ForecastDay>();
+            weatherData.NextHoursForecast = forecast?.NextHoursForecast ?? new List<HourlyForecast>();
+            weatherData.NextDaysForecast = forecast?.NextDaysForecast ?? new List<ForecastDay>();
             await _cacheService.SetAsync(weatherCacheKey, weatherData, cacheDuration);
             _logger.LogInformation("Weather data retrieved from API and cached for {City}", city);
         }
@@ -150,7 +152,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
         }
     }
 
-    public async Task<List<ForecastDay>> GetForecastByCityAsync(string city, string? country = null)
+    public async Task<ForecastSummary> GetForecastByCityAsync(string city, string? country = null)
     {
         try
         {
@@ -165,22 +167,31 @@ public class OpenWeatherMapClient : IWeatherApiClient
 
             var content = await response.Content.ReadAsStringAsync();
             var forecastResponse = JsonSerializer.Deserialize<OpenWeatherMapForecastResponse>(content);
-            return MapToForecastDays(forecastResponse);
+            return MapToForecastSummary(forecastResponse);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Could not load forecast for {City}", city);
-            return new List<ForecastDay>();
+            return new ForecastSummary();
         }
     }
 
-    private static List<ForecastDay> MapToForecastDays(OpenWeatherMapForecastResponse? response)
+    private static ForecastSummary MapToForecastSummary(OpenWeatherMapForecastResponse? response)
     {
         if (response?.List == null || response.List.Count == 0)
-            return new List<ForecastDay>();
+            return new ForecastSummary();
 
         var timezoneOffset = TimeSpan.FromSeconds(response.City?.Timezone ?? 0);
-        var todayLocal = DateTime.UtcNow.Add(timezoneOffset).Date;
+        var localNow = DateTime.UtcNow.Add(timezoneOffset);
+        var todayLocal = localNow.Date;
+        var nextFullHour = new DateTime(
+            localNow.Year,
+            localNow.Month,
+            localNow.Day,
+            localNow.Hour,
+            0,
+            0,
+            localNow.Kind).AddHours(1);
 
         var mapped = response.List
             .Where(i => i.MainData != null)
@@ -189,14 +200,41 @@ public class OpenWeatherMapClient : IWeatherApiClient
                 var localDateTime = DateTimeOffset.FromUnixTimeSeconds(i.Dt).UtcDateTime.Add(timezoneOffset);
                 return new
                 {
+                    LocalDateTime = localDateTime,
                     LocalDate = localDateTime.Date,
                     LocalHour = localDateTime.Hour,
-                    Min = i.MainData!.TempMin,
+                    Temperature = i.MainData!.Temp,
+                    Min = i.MainData.TempMin,
                     Max = i.MainData.TempMax,
                     Description = i.Weather?.FirstOrDefault()?.Description ?? string.Empty,
                     Icon = i.Weather?.FirstOrDefault()?.Icon ?? string.Empty
                 };
             })
+            .ToList();
+
+        var nextHoursForecast = Enumerable.Range(0, 6)
+            .Select(offset => nextFullHour.AddHours(offset))
+            .Select(hourSlot =>
+            {
+                var source = mapped
+                    .Where(i => i.LocalDateTime >= hourSlot)
+                    .OrderBy(i => i.LocalDateTime)
+                    .FirstOrDefault()
+                    ?? mapped.OrderByDescending(i => i.LocalDateTime).First();
+
+                return new HourlyForecast
+                {
+                    DateTime = hourSlot,
+                    Temperature = source.Temperature,
+                    Description = source.Description,
+                    IconUrl = string.IsNullOrWhiteSpace(source.Icon)
+                        ? string.Empty
+                        : $"https://openweathermap.org/img/wn/{source.Icon}@2x.png"
+                };
+            })
+            .ToList();
+
+        var nextDaysForecast = mapped
             .Where(i => i.LocalDate > todayLocal)
             .GroupBy(i => i.LocalDate)
             .OrderBy(g => g.Key)
@@ -221,7 +259,11 @@ public class OpenWeatherMapClient : IWeatherApiClient
             })
             .ToList();
 
-        return mapped;
+        return new ForecastSummary
+        {
+            NextHoursForecast = nextHoursForecast,
+            NextDaysForecast = nextDaysForecast
+        };
     }
 
     private static (string City, string? CountryCode) NormalizeLocationInput(string city, string? country)
@@ -304,7 +346,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
         var normalized = value.Trim().ToLowerInvariant();
         normalized = normalized.Replace(".", string.Empty);
         normalized = normalized.Replace("'", string.Empty);
-        normalized = normalized.Replace("’", string.Empty);
+        normalized = normalized.Replace("ï¿½", string.Empty);
         normalized = normalized.Replace("-", " ");
         return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }

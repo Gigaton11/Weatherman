@@ -132,11 +132,68 @@ a.navbar-brand {
   height: auto;
 }
 
+.hourly-forecast-box {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(248, 251, 255, 0.85);
+}
+
+.hourly-forecast-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem 0.75rem;
+  min-height: 100%;
+}
+
+.hourly-forecast-item + .hourly-forecast-item {
+  border-left: 1px solid var(--surface-border);
+}
+
+.hourly-forecast-time {
+  font-size: 0.95rem;
+}
+
+.hourly-forecast-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.hourly-forecast-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.hourly-forecast-temperature {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
 .footer {
   margin-top: 1.5rem;
   border-top: 1px solid var(--surface-border);
   padding: 0.85rem 0;
   background: rgba(255, 255, 255, 0.56);
+  text-align: center;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.footer-privacy-link {
+  min-width: 7rem;
 }
 
 @media (max-width: 767.98px) {
@@ -152,9 +209,29 @@ a.navbar-brand {
   .search-btn {
     min-height: 2.9rem;
   }
+
+  .hourly-forecast-item:nth-child(2n + 1) {
+    border-left: none;
+  }
+
+  .hourly-forecast-item:nth-child(n + 3) {
+    border-top: 1px solid var(--surface-border);
+  }
 }
 
 @media (min-width: 768px) {
+  .hourly-forecast-box {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .hourly-forecast-item {
+    border-top: none;
+  }
+
+  .hourly-forecast-item + .hourly-forecast-item {
+    border-left: 1px solid var(--surface-border);
+  }
+
   .search-row .col-md-2 {
     min-width: 8.5rem;
   }

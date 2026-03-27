@@ -12,7 +12,7 @@ public interface IWeatherApiClient
 {
     Task<WeatherData?> GetWeatherByCityAsync(string city, string? country = null);
     Task<WeatherData?> GetWeatherByCoordinatesAsync(double latitude, double longitude);
-    Task<List<ForecastDay>> GetForecastByCityAsync(string city, string? country = null);
+    Task<ForecastSummary> GetForecastByCityAsync(string city, string? country = null);
 }
 
 public interface ICacheService
