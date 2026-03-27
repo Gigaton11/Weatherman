@@ -1,6 +1,6 @@
-# Weather Dashboard
+# Weatherman 🌍
 
-ASP.NET Core Weather application with OpenWeatherMap integration, caching, and AWS DynamoDB-backed user favorites.
+Weather forecast application made with ASP.NET Core and OpenWeatherMap's Api. User favorites are stored on AWS DynamoDB-backed.
 
 ## Features
 
