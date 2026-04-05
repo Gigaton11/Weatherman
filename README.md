@@ -2,6 +2,10 @@
 
 Weather forecast application made with ASP.NET Core and OpenWeatherMap's Api. User favorites are stored on AWS DynamoDB-backed.
 
+## Screenshots
+<summary>Home Page</summary> <details><img width="1372" height="1209" alt="image" src="https://github.com/user-attachments/assets/78acaaa4-8aa8-44de-9480-dbb8a2a89001" /></details>
+<summary>Forecast Page</summary> <details><img width="1204" height="1217" alt="image" src="https://github.com/user-attachments/assets/799cacba-42d0-4904-9649-0463e473c805" /></details>
+
 ## Features
 
 - Search current weather by city, with optional country support.
