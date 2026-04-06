@@ -2,6 +2,7 @@ using Serilog;
 using WeatherDashboard.Services;
 using Amazon;
 using Amazon.DynamoDBv2;
+using Amazon.SecretsManager;
 
 // ============================================================================
 // APPLICATION ENTRY POINT - Weather Dashboard
@@ -37,6 +38,12 @@ builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
     var regionName = builder.Configuration["AWS:Region"] ?? "eu-north-1";
     var region = RegionEndpoint.GetBySystemName(regionName);
     return new AmazonDynamoDBClient(region);
+});
+builder.Services.AddSingleton<IAmazonSecretsManager>(_ =>
+{
+    var regionName = builder.Configuration["AWS:Region"] ?? "eu-north-1";
+    var region = RegionEndpoint.GetBySystemName(regionName);
+    return new AmazonSecretsManagerClient(region);
 });
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using Amazon.SecretsManager;
+using Amazon.SecretsManager.Model;
 using WeatherDashboard.Models;
 
 namespace WeatherDashboard.Services;
@@ -109,6 +111,13 @@ public class WeatherService : IWeatherService
 
 public class OpenWeatherMapClient : IWeatherApiClient
 {
+    private static readonly string[] ApiKeyEnvironmentVariables =
+    {
+        "WeatherApi__ApiKey",
+        "WEATHER_API_KEY",
+        "OPENWEATHER_API_KEY"
+    };
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenWeatherMapClient> _logger;
     private readonly string _baseUrl;
@@ -152,7 +161,16 @@ public class OpenWeatherMapClient : IWeatherApiClient
             var url = $"{_baseUrl}/weather?q={Uri.EscapeDataString(query)}&appid={apiKey}&units=metric";
 
             var response = await _httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning(
+                    "OpenWeatherMap returned {StatusCode} for city {City}. Response: {Response}",
+                    (int)response.StatusCode,
+                    city,
+                    errorBody);
+                return null;
+            }
 
             var content = await response.Content.ReadAsStringAsync();
             var openWeatherResponse = JsonSerializer.Deserialize<OpenWeatherMapResponse>(content);
@@ -451,6 +469,16 @@ public class OpenWeatherMapClient : IWeatherApiClient
             return _resolvedApiKey;
         }
 
+        foreach (var envVarName in ApiKeyEnvironmentVariables)
+        {
+            var envValue = Environment.GetEnvironmentVariable(envVarName);
+            if (!string.IsNullOrWhiteSpace(envValue))
+            {
+                _resolvedApiKey = envValue;
+                return _resolvedApiKey;
+            }
+        }
+
         _resolvedApiKey = await _secretsManager.GetSecretAsync(_apiKeySecretName) ?? string.Empty;
         return _resolvedApiKey;
     }
@@ -463,9 +491,105 @@ public interface ISecretsManagerService
 
 public class SecretsManagerService : ISecretsManagerService
 {
-    public Task<string?> GetSecretAsync(string secretName)
+    private readonly IAmazonSecretsManager _secretsManagerClient;
+    private readonly ILogger<SecretsManagerService> _logger;
+
+    public SecretsManagerService(
+        IAmazonSecretsManager secretsManagerClient,
+        ILogger<SecretsManagerService> logger)
     {
-        return Task.FromResult<string?>(null);
+        _secretsManagerClient = secretsManagerClient;
+        _logger = logger;
+    }
+
+    public async Task<string?> GetSecretAsync(string secretName)
+    {
+        if (string.IsNullOrWhiteSpace(secretName))
+            return null;
+
+        try
+        {
+            var response = await _secretsManagerClient.GetSecretValueAsync(new GetSecretValueRequest
+            {
+                SecretId = secretName
+            });
+
+            if (!string.IsNullOrWhiteSpace(response.SecretString))
+            {
+                return ExtractSecretValue(response.SecretString);
+            }
+
+            if (response.SecretBinary != null)
+            {
+                response.SecretBinary.Position = 0;
+                using var reader = new StreamReader(response.SecretBinary);
+                var binaryValue = await reader.ReadToEndAsync();
+                return ExtractSecretValue(binaryValue);
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve secret {SecretName} from AWS Secrets Manager", secretName);
+            return null;
+        }
+    }
+
+    private static string? ExtractSecretValue(string rawSecret)
+    {
+        if (string.IsNullOrWhiteSpace(rawSecret))
+            return null;
+
+        var trimmed = rawSecret.Trim();
+        if (!trimmed.StartsWith('{'))
+            return trimmed;
+
+        try
+        {
+            using var document = JsonDocument.Parse(trimmed);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return trimmed;
+
+            var commonKeys = new[]
+            {
+                "apiKey",
+                "ApiKey",
+                "weatherApiKey",
+                "WeatherApiKey",
+                "openWeatherApiKey",
+                "OPENWEATHER_API_KEY",
+                "value"
+            };
+
+            foreach (var key in commonKeys)
+            {
+                if (root.TryGetProperty(key, out var valueNode) && valueNode.ValueKind == JsonValueKind.String)
+                {
+                    var value = valueNode.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return value;
+                }
+            }
+
+            if (root.EnumerateObject().Count() == 1)
+            {
+                var only = root.EnumerateObject().First();
+                if (only.Value.ValueKind == JsonValueKind.String)
+                {
+                    var value = only.Value.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return value;
+                }
+            }
+
+            return trimmed;
+        }
+        catch
+        {
+            return trimmed;
+        }
     }
 }
 
