@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace WeatherDashboard.Models;
 
+/// <summary>
+/// Combined current weather payload used by the UI.
+/// </summary>
 public class WeatherData
 {
     public string City { get; set; } = string.Empty;
@@ -21,6 +24,9 @@ public class WeatherData
     public List<ForecastDay> NextDaysForecast { get; set; } = new();
 }
 
+/// <summary>
+/// Single hourly forecast projection displayed on the detail page.
+/// </summary>
 public class HourlyForecast
 {
     public DateTime DateTime { get; set; }
@@ -29,6 +35,9 @@ public class HourlyForecast
     public string IconUrl { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Daily min/max forecast projection used for the 2-day summary.
+/// </summary>
 public class ForecastDay
 {
     public DateTime Date { get; set; }
@@ -38,18 +47,27 @@ public class ForecastDay
     public string IconUrl { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Grouped forecast response for upcoming hours and days.
+/// </summary>
 public class ForecastSummary
 {
     public List<HourlyForecast> NextHoursForecast { get; set; } = new();
     public List<ForecastDay> NextDaysForecast { get; set; } = new();
 }
 
+/// <summary>
+/// Request model for city-based weather searches.
+/// </summary>
 public class WeatherSearchRequest
 {
     public string City { get; set; } = string.Empty;
     public string? Country { get; set; }
 }
 
+/// <summary>
+/// Root JSON contract for OpenWeatherMap current-weather API responses.
+/// </summary>
 public class OpenWeatherMapResponse
 {
     [JsonPropertyName("coord")]
@@ -80,6 +98,9 @@ public class OpenWeatherMapResponse
     public int? Cod { get; set; }
 }
 
+/// <summary>
+/// Root JSON contract for OpenWeatherMap forecast API responses.
+/// </summary>
 public class OpenWeatherMapForecastResponse
 {
     [JsonPropertyName("list")]
@@ -89,6 +110,9 @@ public class OpenWeatherMapForecastResponse
     public ForecastCity? City { get; set; }
 }
 
+/// <summary>
+/// Forecast entry from OpenWeatherMap's 3-hour interval list.
+/// </summary>
 public class ForecastItem
 {
     [JsonPropertyName("dt")]
@@ -101,6 +125,9 @@ public class ForecastItem
     public List<Weather>? Weather { get; set; }
 }
 
+/// <summary>
+/// City metadata attached to forecast responses.
+/// </summary>
 public class ForecastCity
 {
     [JsonPropertyName("name")]
@@ -113,12 +140,18 @@ public class ForecastCity
     public int? Timezone { get; set; }
 }
 
+/// <summary>
+/// System metadata section in OpenWeatherMap responses.
+/// </summary>
 public class Sys
 {
     [JsonPropertyName("country")]
     public string? Country { get; set; }
 }
 
+/// <summary>
+/// Coordinates section in OpenWeatherMap responses.
+/// </summary>
 public class Coord
 {
     [JsonPropertyName("lon")]
@@ -128,6 +161,9 @@ public class Coord
     public double Lat { get; set; }
 }
 
+/// <summary>
+/// Weather condition section in OpenWeatherMap responses.
+/// </summary>
 public class Weather
 {
     [JsonPropertyName("id")]
@@ -143,6 +179,9 @@ public class Weather
     public string Icon { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Main measurement section in OpenWeatherMap responses.
+/// </summary>
 public class MainData
 {
     [JsonPropertyName("temp")]
@@ -164,6 +203,9 @@ public class MainData
     public int Humidity { get; set; }
 }
 
+/// <summary>
+/// Wind section in OpenWeatherMap responses.
+/// </summary>
 public class Wind
 {
     [JsonPropertyName("speed")]
@@ -176,6 +218,9 @@ public class Wind
     public double? Gust { get; set; }
 }
 
+/// <summary>
+/// Persisted user preferences for favorites and units.
+/// </summary>
 public class UserWeatherPreference
 {
     public string UserId { get; set; } = string.Empty;
@@ -184,6 +229,9 @@ public class UserWeatherPreference
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>
+/// Error payload used by the shared MVC error view.
+/// </summary>
 public class ErrorViewModel
 {
     public string? RequestId { get; set; }

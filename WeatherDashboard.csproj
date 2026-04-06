@@ -11,7 +11,7 @@
     <PackageReference Include="AWSSDK.CloudWatch" Version="3.7.100" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.100" />
     <PackageReference Include="AWSSDK.SecretsManager" Version="3.7.100" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.1" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />

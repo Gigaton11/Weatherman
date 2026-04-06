@@ -1,0 +1,12 @@
+bin/
+obj/
+logs/
+.git/
+.gitignore
+.vs/
+*.user
+*.suo
+*.cache
+*.nupkg
+README.md
+appsettings.Development.json

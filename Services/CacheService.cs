@@ -55,13 +55,10 @@ public class AmazonElastiCacheService : ICacheService
     /// Retrieve value from cache by key
     /// Generic&lt;T&gt; allows storing any serializable type
     /// </summary>
-    public async Task<T?> GetAsync<T>(string key)
+    public Task<T?> GetAsync<T>(string key)
     {
         try
         {
-            // Note: IMemoryCache is synchronous, Task.Delay(0) makes it async-compatible
-            await Task.Delay(0);
-            
             // ─────────────────────────────────────────────────────────────────────
             // CACHE LOOKUP
             // ─────────────────────────────────────────────────────────────────────
@@ -69,30 +66,27 @@ public class AmazonElastiCacheService : ICacheService
             if (_memoryCache.TryGetValue(key, out var value))
             {
                 _logger.LogDebug("Cache hit for key: {Key}", key);  // Performance-critical, debug level
-                return (T?)value;
+                return Task.FromResult((T?)value);
             }
 
             _logger.LogDebug("Cache miss for key: {Key}", key);  // Cache miss is normal
-            return default;  // Return null for reference types, default for value types
+            return Task.FromResult<T?>(default);  // Return null for reference types, default for value types
         }
         catch (Exception ex)
         {
             // Log error but don't throw - treat cache failures gracefully
             _logger.LogError(ex, "Error retrieving from cache: {Key}", key);
-            return default;  // Return null/default to fall back to API call
+            return Task.FromResult<T?>(default);  // Return null/default to fall back to API call
         }
     }
 
     /// <summary>
     /// Store value in cache with time-to-live (TTL) expiration
     /// </summary>
-    public async Task SetAsync<T>(string key, T value, TimeSpan expiration)
+    public Task SetAsync<T>(string key, T value, TimeSpan expiration)
     {
         try
         {
-            // Note: IMemoryCache is synchronous, async wrapper for consistency
-            await Task.Delay(0);
-            
             // ─────────────────────────────────────────────────────────────────────
             // CONFIGURE CACHE EXPIRATION OPTIONS
             // ─────────────────────────────────────────────────────────────────────
@@ -111,11 +105,13 @@ public class AmazonElastiCacheService : ICacheService
             _memoryCache.Set(key, value, cacheOptions);
             
             _logger.LogDebug("Cached value for key: {Key} with expiration: {Expiration}", key, expiration);
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
             // Log error but don't throw - non-critical to continue if caching fails
             _logger.LogError(ex, "Error setting cache for key: {Key}", key);
+            return Task.CompletedTask;
         }
     }
 
@@ -123,23 +119,22 @@ public class AmazonElastiCacheService : ICacheService
     /// Remove value from cache immediately
     /// Useful for invalidating stale data
     /// </summary>
-    public async Task RemoveAsync(string key)
+    public Task RemoveAsync(string key)
     {
         try
         {
-            // Note: IMemoryCache is synchronous, async wrapper for consistency
-            await Task.Delay(0);
-            
             // Remove entry from cache
             // Safe to call on non-existent keys (no error)
             _memoryCache.Remove(key);
             
             _logger.LogDebug("Removed key from cache: {Key}", key);
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
             // Log error but don't throw
             _logger.LogError(ex, "Error removing from cache: {Key}", key);
+            return Task.CompletedTask;
         }
     }
 }

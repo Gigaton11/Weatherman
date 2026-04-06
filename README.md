@@ -1,6 +1,10 @@
 # Weatherman 🌍
 
 Weather forecast application made with ASP.NET Core and OpenWeatherMap's Api. User favorites are stored on AWS DynamoDB-backed.
+> Hosted on Google Cloud Run.
+
+## 🟢 Live Demo 
+Visit [Weatherman](https://weatherman-750230352076.europe-west1.run.app)
 
 ## Screenshots
 <summary>Home Page</summary> <details><img width="1372" height="1209" alt="image" src="https://github.com/user-attachments/assets/78acaaa4-8aa8-44de-9480-dbb8a2a89001" /></details>
@@ -99,6 +103,78 @@ dotnet run
 ```bash
 dotnet build WeatherDashboard.csproj /p:UseAppHost=false
 dotnet run
+```
+
+## Docker
+
+Build and run locally with Docker:
+
+```bash
+docker build -t weather-dashboard .
+docker run --rm -p 8080:8080 weather-dashboard
+```
+
+Open `http://localhost:8080`.
+
+Production-style local check:
+
+```bash
+docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Production weather-dashboard
+curl http://localhost:8080/health
+```
+
+## Deploy to Google Cloud Run (Connect Repo in Browser)
+
+This repository is already structured for Dockerfile-based Cloud Run builds:
+
+- `Dockerfile` is in repository root.
+- `.dockerignore` trims build context.
+- App listens on port `8080` and includes `/health` endpoint.
+
+### Browser flow (continuous deployment)
+
+1. Open Cloud Run in Google Cloud Console.
+2. Click **Create service** -> **Continuously deploy from a repository (source or function)**.
+3. Click **Set up with Cloud Build** and connect GitHub if not already linked.
+4. Select repository and branch (for example `main`).
+5. Build type: **Dockerfile**.
+6. Region: choose your target region (for example `europe-west1`).
+7. Authentication: **Allow unauthenticated** if this is a public app.
+8. Add environment variables:
+	- `ASPNETCORE_ENVIRONMENT=Production`
+	- `AWS__Region=eu-north-1`
+	- `AWS__DynamoDB__TableName=UserWeatherPreferences`
+	- Optionally `WeatherApi__ApiKey` if not using Secrets Manager.
+9. Create the service. Cloud Run will auto-deploy on future commits to the selected branch.
+
+### Post-deploy smoke checks
+
+1. Open service URL and verify home page loads.
+2. Verify `/health` returns `OK`.
+3. Search by city and confirm weather details render.
+4. Add/remove a favorite city and verify no server error.
+5. Check Cloud Run logs for startup and request traces.
+
+## Deploy via CLI (optional)
+
+This repository contains a `Dockerfile`, so Cloud Build will build the container image during deploy.
+
+```bash
+gcloud config set project weatherman-492508
+gcloud run deploy weather-dashboard \
+	--source . \
+	--region europe-west1 \
+	--allow-unauthenticated
+```
+
+To deploy with the exact service account by number:
+
+```bash
+gcloud run deploy weather-dashboard \
+	--source . \
+	--region europe-west1 \
+	--allow-unauthenticated \
+	--service-account 750230352076-compute@developer.gserviceaccount.com
 ```
 
 

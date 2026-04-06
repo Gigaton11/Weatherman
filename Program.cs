@@ -68,7 +68,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();                            // HTTP Strict Transport Security header
 }
 
-app.UseHttpsRedirection();  // Redirect HTTP to HTTPS
+// Cloud Run terminates TLS at the load balancer and forwards requests over HTTP.
+// Keep local development redirect behavior, but avoid production redirect loops.
+if (app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();  // Redirect HTTP to HTTPS locally
+}
 app.UseStaticFiles();       // Serve static files (CSS, JS, images)
 
 app.UseRouting();           // Enable routing
@@ -82,6 +87,8 @@ app.UseRouting();           // Enable routing
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.MapGet("/health", () => Results.Ok("OK"));
 
 // ─────────────────────────────────────────────────────────────────────────
 // APPLICATION STARTUP WITH ERROR HANDLING

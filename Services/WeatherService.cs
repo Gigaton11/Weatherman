@@ -6,6 +6,10 @@ namespace WeatherDashboard.Services;
 
 public class WeatherService : IWeatherService
 {
+    private const string WeatherCachePrefix = "weather";
+    private const string ForecastCachePrefix = "forecast";
+    private const string GeoCachePrefix = "weather:geo";
+
     private readonly IWeatherApiClient _apiClient;
     private readonly ICacheService _cacheService;
     private readonly ILogger<WeatherService> _logger;
@@ -34,8 +38,8 @@ public class WeatherService : IWeatherService
         var normalizedCity = city.Trim().ToLowerInvariant();
         var normalizedCountry = string.IsNullOrWhiteSpace(country) ? "any" : country.Trim().ToLowerInvariant();
 
-        var weatherCacheKey = $"weather:{normalizedCity}:{normalizedCountry}";
-        var forecastCacheKey = $"forecast:{normalizedCity}:{normalizedCountry}";
+        var weatherCacheKey = $"{WeatherCachePrefix}:{normalizedCity}:{normalizedCountry}";
+        var forecastCacheKey = $"{ForecastCachePrefix}:{normalizedCity}:{normalizedCountry}";
         var cacheDuration = TimeSpan.FromMinutes(_configuration.GetValue<int>("Caching:DurationMinutes", 30));
 
         var forecast = await _cacheService.GetAsync<ForecastSummary>(forecastCacheKey);
@@ -50,8 +54,7 @@ public class WeatherService : IWeatherService
         if (cachedData != null)
         {
             cachedData.IsFromCache = true;
-            cachedData.NextHoursForecast = forecast?.NextHoursForecast ?? new List<HourlyForecast>();
-            cachedData.NextDaysForecast = forecast?.NextDaysForecast ?? new List<ForecastDay>();
+            ApplyForecastData(cachedData, forecast);
             _logger.LogInformation("Weather data retrieved from cache for {City}", city);
             return cachedData;
         }
@@ -59,8 +62,7 @@ public class WeatherService : IWeatherService
         var weatherData = await _apiClient.GetWeatherByCityAsync(city, country);
         if (weatherData != null)
         {
-            weatherData.NextHoursForecast = forecast?.NextHoursForecast ?? new List<HourlyForecast>();
-            weatherData.NextDaysForecast = forecast?.NextDaysForecast ?? new List<ForecastDay>();
+            ApplyForecastData(weatherData, forecast);
             await _cacheService.SetAsync(weatherCacheKey, weatherData, cacheDuration);
             _logger.LogInformation("Weather data retrieved from API and cached for {City}", city);
         }
@@ -74,7 +76,13 @@ public class WeatherService : IWeatherService
 
     public async Task<List<WeatherData>?> GetWeatherByCoordinatesAsync(double latitude, double longitude)
     {
-        var cacheKey = $"weather:geo:{latitude:F4}:{longitude:F4}";
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+        {
+            _logger.LogWarning("Invalid coordinates provided: {Latitude},{Longitude}", latitude, longitude);
+            return null;
+        }
+
+        var cacheKey = $"{GeoCachePrefix}:{latitude:F4}:{longitude:F4}";
         var cachedData = await _cacheService.GetAsync<List<WeatherData>>(cacheKey);
         if (cachedData != null)
         {
@@ -91,15 +99,23 @@ public class WeatherService : IWeatherService
 
         return weatherData != null ? new List<WeatherData> { weatherData } : null;
     }
+
+    private static void ApplyForecastData(WeatherData weatherData, ForecastSummary? forecast)
+    {
+        weatherData.NextHoursForecast = forecast?.NextHoursForecast ?? new List<HourlyForecast>();
+        weatherData.NextDaysForecast = forecast?.NextDaysForecast ?? new List<ForecastDay>();
+    }
 }
 
 public class OpenWeatherMapClient : IWeatherApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenWeatherMapClient> _logger;
-    private readonly IConfiguration _configuration;
     private readonly string _baseUrl;
-    private readonly string _apiKey;
+    private readonly ISecretsManagerService _secretsManager;
+    private readonly string? _configuredApiKey;
+    private readonly string _apiKeySecretName;
+    private string? _resolvedApiKey;
     private static readonly Dictionary<string, string> CountryAliases = BuildCountryAliasMap();
 
     public OpenWeatherMapClient(
@@ -110,27 +126,30 @@ public class OpenWeatherMapClient : IWeatherApiClient
     {
         _httpClient = httpClient;
         _logger = logger;
-        _configuration = configuration;
-        _baseUrl = _configuration["WeatherApi:BaseUrl"] ?? "https://api.openweathermap.org/data/2.5";
+        _baseUrl = configuration["WeatherApi:BaseUrl"] ?? "https://api.openweathermap.org/data/2.5";
+        _secretsManager = secretsManager;
 
-        var configuredApiKey = _configuration["WeatherApi:ApiKey"];
-        var secretName = _configuration["WeatherApi:ApiKeySecretName"]
+        _configuredApiKey = configuration["WeatherApi:ApiKey"];
+        _apiKeySecretName = configuration["WeatherApi:ApiKeySecretName"]
             ?? "weather-dashboard/openweather-api-key";
-
-        _apiKey = !string.IsNullOrWhiteSpace(configuredApiKey)
-            ? configuredApiKey
-            : (secretsManager.GetSecretAsync(secretName).Result ?? string.Empty);
     }
 
     public async Task<WeatherData?> GetWeatherByCityAsync(string city, string? country = null)
     {
         try
         {
+            var apiKey = await GetApiKeyAsync();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _logger.LogError("OpenWeatherMap API key is not configured");
+                return null;
+            }
+
             var (normalizedCity, normalizedCountryCode) = NormalizeLocationInput(city, country);
             var query = !string.IsNullOrWhiteSpace(normalizedCountryCode)
                 ? $"{normalizedCity},{normalizedCountryCode}"
                 : normalizedCity;
-            var url = $"{_baseUrl}/weather?q={Uri.EscapeDataString(query)}&appid={_apiKey}&units=metric";
+            var url = $"{_baseUrl}/weather?q={Uri.EscapeDataString(query)}&appid={apiKey}&units=metric";
 
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -156,11 +175,18 @@ public class OpenWeatherMapClient : IWeatherApiClient
     {
         try
         {
+            var apiKey = await GetApiKeyAsync();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _logger.LogError("OpenWeatherMap API key is not configured");
+                return new ForecastSummary();
+            }
+
             var (normalizedCity, normalizedCountryCode) = NormalizeLocationInput(city, country);
             var query = !string.IsNullOrWhiteSpace(normalizedCountryCode)
                 ? $"{normalizedCity},{normalizedCountryCode}"
                 : normalizedCity;
-            var url = $"{_baseUrl}/forecast?q={Uri.EscapeDataString(query)}&appid={_apiKey}&units=metric";
+            var url = $"{_baseUrl}/forecast?q={Uri.EscapeDataString(query)}&appid={apiKey}&units=metric";
 
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -181,6 +207,8 @@ public class OpenWeatherMapClient : IWeatherApiClient
         if (response?.List == null || response.List.Count == 0)
             return new ForecastSummary();
 
+        // Forecast timestamps are UTC. Convert each point to city-local time so hourly and daily
+        // summaries align with the target location rather than the server timezone.
         var timezoneOffset = TimeSpan.FromSeconds(response.City?.Timezone ?? 0);
         var localNow = DateTime.UtcNow.Add(timezoneOffset);
         var todayLocal = localNow.Date;
@@ -212,6 +240,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
             })
             .ToList();
 
+        // Build 6 upcoming hourly slots and choose the first forecast data point at/after each slot.
         var nextHoursForecast = Enumerable.Range(0, 6)
             .Select(offset => nextFullHour.AddHours(offset))
             .Select(hourSlot =>
@@ -234,6 +263,7 @@ public class OpenWeatherMapClient : IWeatherApiClient
             })
             .ToList();
 
+        // For each upcoming day, pick an entry closest to noon as the representative condition.
         var nextDaysForecast = mapped
             .Where(i => i.LocalDate > todayLocal)
             .GroupBy(i => i.LocalDate)
@@ -318,6 +348,8 @@ public class OpenWeatherMapClient : IWeatherApiClient
         AddAlias("Hellas", "GR");
         AddAlias("Ellada", "GR");
 
+        // Include common aliases and region-derived names so input like "UK" or "Hellas"
+        // still resolves to ISO country codes accepted by OpenWeatherMap.
         foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
         {
             RegionInfo region;
@@ -355,7 +387,14 @@ public class OpenWeatherMapClient : IWeatherApiClient
     {
         try
         {
-            var url = $"{_baseUrl}/weather?lat={latitude}&lon={longitude}&appid={_apiKey}&units=metric";
+            var apiKey = await GetApiKeyAsync();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                _logger.LogError("OpenWeatherMap API key is not configured");
+                return null;
+            }
+
+            var url = $"{_baseUrl}/weather?lat={latitude}&lon={longitude}&appid={apiKey}&units=metric";
 
             var response = await _httpClient.GetAsync(url);
             response.EnsureSuccessStatusCode();
@@ -399,6 +438,21 @@ public class OpenWeatherMapClient : IWeatherApiClient
             WindSpeed = response.Wind?.Speed ?? 0,
             RetrievedAt = DateTime.UtcNow
         };
+    }
+
+    private async Task<string> GetApiKeyAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_resolvedApiKey))
+            return _resolvedApiKey;
+
+        if (!string.IsNullOrWhiteSpace(_configuredApiKey))
+        {
+            _resolvedApiKey = _configuredApiKey;
+            return _resolvedApiKey;
+        }
+
+        _resolvedApiKey = await _secretsManager.GetSecretAsync(_apiKeySecretName) ?? string.Empty;
+        return _resolvedApiKey;
     }
 }
 

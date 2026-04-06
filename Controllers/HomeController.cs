@@ -6,6 +6,15 @@ namespace WeatherDashboard.Controllers;
 
 public class HomeController : Controller
 {
+    private const string CityFieldName = "city";
+    private const string TempDataSuccessKey = "SuccessMessage";
+    private const string TempDataErrorKey = "ErrorMessage";
+    private const string UserIdCookieName = "wd_user_id";
+    private const string EmptyCityErrorMessage = "Please enter a city name";
+    private const string WeatherNotFoundErrorMessage = "Could not find weather data for this location";
+    private const string WeatherFetchErrorMessage = "An error occurred while fetching weather data";
+    private const string FavoriteCityRequiredMessage = "City is required to add a favorite.";
+
     private readonly IWeatherService _weatherService;
     private readonly IUserPreferencesService _userPreferencesService;
     private readonly ILogger<HomeController> _logger;
@@ -33,7 +42,7 @@ public class HomeController : Controller
     {
         if (string.IsNullOrWhiteSpace(city))
         {
-            ModelState.AddModelError("city", "Please enter a city name");
+            ModelState.AddModelError(CityFieldName, EmptyCityErrorMessage);
             await LoadFavoriteCitiesAsync();
             return View("Index");
         }
@@ -44,7 +53,7 @@ public class HomeController : Controller
 
             if (weather == null)
             {
-                ModelState.AddModelError("", "Could not find weather data for this location");
+                ModelState.AddModelError(string.Empty, WeatherNotFoundErrorMessage);
                 await LoadFavoriteCitiesAsync();
                 return View("Index");
             }
@@ -54,7 +63,7 @@ public class HomeController : Controller
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error searching weather for {City}", city);
-            ModelState.AddModelError("", "An error occurred while fetching weather data");
+            ModelState.AddModelError(string.Empty, WeatherFetchErrorMessage);
             await LoadFavoriteCitiesAsync();
             return View("Index");
         }
@@ -71,7 +80,7 @@ public class HomeController : Controller
     {
         if (string.IsNullOrWhiteSpace(city))
         {
-            TempData["ErrorMessage"] = "City is required to add a favorite.";
+            TempData[TempDataErrorKey] = FavoriteCityRequiredMessage;
             return RedirectToAction(nameof(Index));
         }
 
@@ -79,7 +88,7 @@ public class HomeController : Controller
         var favoriteValue = BuildFavoriteValue(city, country);
 
         await _userPreferencesService.AddFavoriteCityAsync(userId, favoriteValue);
-        TempData["SuccessMessage"] = $"Added '{favoriteValue}' to favorites.";
+        TempData[TempDataSuccessKey] = $"Added '{favoriteValue}' to favorites.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -89,13 +98,16 @@ public class HomeController : Controller
     public async Task<IActionResult> RemoveFavoriteCity(string city, string? country)
     {
         if (string.IsNullOrWhiteSpace(city))
+        {
+            TempData[TempDataErrorKey] = FavoriteCityRequiredMessage;
             return RedirectToAction(nameof(Index));
+        }
 
         var userId = GetOrCreateUserId();
         var favoriteValue = BuildFavoriteValue(city, country);
 
         await _userPreferencesService.RemoveFavoriteCityAsync(userId, favoriteValue);
-        TempData["SuccessMessage"] = $"Removed '{favoriteValue}' from favorites.";
+        TempData[TempDataSuccessKey] = $"Removed '{favoriteValue}' from favorites.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -118,14 +130,13 @@ public class HomeController : Controller
 
     private string GetOrCreateUserId()
     {
-        const string cookieName = "wd_user_id";
-        if (Request.Cookies.TryGetValue(cookieName, out var existing) && !string.IsNullOrWhiteSpace(existing))
+        if (Request.Cookies.TryGetValue(UserIdCookieName, out var existing) && !string.IsNullOrWhiteSpace(existing))
             return existing;
 
         var userId = Guid.NewGuid().ToString("N");
 
         // Keeps per-browser favorites without requiring authentication.
-        Response.Cookies.Append(cookieName, userId, new CookieOptions
+        Response.Cookies.Append(UserIdCookieName, userId, new CookieOptions
         {
             HttpOnly = true,
             Secure = Request.IsHttps,
@@ -138,6 +149,7 @@ public class HomeController : Controller
 
     private static string BuildFavoriteValue(string city, string? country)
     {
+        // Store as "city,COUNTRY" so persisted favorites are compact and human-readable.
         var cityPart = city.Trim();
         if (string.IsNullOrWhiteSpace(country))
             return cityPart;
