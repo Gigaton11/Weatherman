@@ -1,6 +1,7 @@
 using Serilog;
 using WeatherDashboard.Services;
 using Amazon;
+using Amazon.Runtime;
 using Amazon.DynamoDBv2;
 using Amazon.SecretsManager;
 
@@ -35,14 +36,28 @@ builder.Services.AddHttpClient();            // HTTP client factory for API call
 builder.Services.AddMemoryCache();           // In-memory caching (local development)
 builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
 {
-    var regionName = builder.Configuration["AWS:Region"] ?? "eu-north-1";
+    var regionName = ResolveAwsRegion(builder.Configuration);
     var region = RegionEndpoint.GetBySystemName(regionName);
+    var credentials = ResolveAwsCredentials(builder.Configuration);
+
+    if (credentials != null)
+    {
+        return new AmazonDynamoDBClient(credentials, region);
+    }
+
     return new AmazonDynamoDBClient(region);
 });
 builder.Services.AddSingleton<IAmazonSecretsManager>(_ =>
 {
-    var regionName = builder.Configuration["AWS:Region"] ?? "eu-north-1";
+    var regionName = ResolveAwsRegion(builder.Configuration);
     var region = RegionEndpoint.GetBySystemName(regionName);
+    var credentials = ResolveAwsCredentials(builder.Configuration);
+
+    if (credentials != null)
+    {
+        return new AmazonSecretsManagerClient(credentials, region);
+    }
+
     return new AmazonSecretsManagerClient(region);
 });
 
@@ -59,6 +74,33 @@ builder.Services.AddScoped<IWeatherApiClient, OpenWeatherMapClient>();          
 builder.Services.AddScoped<ICacheService, AmazonElastiCacheService>();                   // Cache service (in-memory now, Redis in production)
 builder.Services.AddScoped<IUserPreferencesService, DynamoDbUserPreferencesService>();   // DynamoDB user preferences
 builder.Services.AddScoped<ISecretsManagerService, SecretsManagerService>();             // AWS Secrets Manager integration
+
+static string ResolveAwsRegion(IConfiguration configuration)
+{
+    return configuration["AWS:Region"]
+        ?? Environment.GetEnvironmentVariable("AWS_REGION")
+        ?? "eu-north-1";
+}
+
+static AWSCredentials? ResolveAwsCredentials(IConfiguration configuration)
+{
+    var accessKey = configuration["AWS:AccessKeyId"]
+        ?? Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+    var secretKey = configuration["AWS:SecretAccessKey"]
+        ?? Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+
+    if (string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey))
+    {
+        return null;
+    }
+
+    var sessionToken = configuration["AWS:SessionToken"]
+        ?? Environment.GetEnvironmentVariable("AWS_SESSION_TOKEN");
+
+    return string.IsNullOrWhiteSpace(sessionToken)
+        ? new BasicAWSCredentials(accessKey, secretKey)
+        : new SessionAWSCredentials(accessKey, secretKey, sessionToken);
+}
 
 // Build the application after all services are registered
 var app = builder.Build();
