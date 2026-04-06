@@ -84,6 +84,7 @@
                                         <button type="submit" class="btn btn-sm btn-primary me-1">Search</button>
                                     </form>
                                     <form asp-action="RemoveFavoriteCity" asp-controller="Home" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
                                         <input type="hidden" name="city" value="@favorite" />
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                                     </form>
