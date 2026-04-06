@@ -325,6 +325,7 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adding favorite city for user: {UserId}", userId);
+            throw;
         }
     }
 
@@ -366,6 +367,7 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing favorite city for user: {UserId}", userId);
+            throw;
         }
     }
 

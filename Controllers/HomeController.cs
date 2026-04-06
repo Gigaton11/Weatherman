@@ -14,6 +14,8 @@ public class HomeController : Controller
     private const string WeatherNotFoundErrorMessage = "Could not find weather data for this location";
     private const string WeatherFetchErrorMessage = "An error occurred while fetching weather data";
     private const string FavoriteCityRequiredMessage = "City is required to add a favorite.";
+    private const string FavoriteAddFailedMessage = "Could not save favorite city. Please try again.";
+    private const string FavoriteRemoveFailedMessage = "Could not remove favorite city. Please try again.";
 
     private readonly IWeatherService _weatherService;
     private readonly IUserPreferencesService _userPreferencesService;
@@ -87,8 +89,16 @@ public class HomeController : Controller
         var userId = GetOrCreateUserId();
         var favoriteValue = BuildFavoriteValue(city, country);
 
-        await _userPreferencesService.AddFavoriteCityAsync(userId, favoriteValue);
-        TempData[TempDataSuccessKey] = $"Added '{favoriteValue}' to favorites.";
+        try
+        {
+            await _userPreferencesService.AddFavoriteCityAsync(userId, favoriteValue);
+            TempData[TempDataSuccessKey] = $"Added '{favoriteValue}' to favorites.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed adding favorite city {City} for user {UserId}", favoriteValue, userId);
+            TempData[TempDataErrorKey] = FavoriteAddFailedMessage;
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -106,8 +116,17 @@ public class HomeController : Controller
         var userId = GetOrCreateUserId();
         var favoriteValue = BuildFavoriteValue(city, country);
 
-        await _userPreferencesService.RemoveFavoriteCityAsync(userId, favoriteValue);
-        TempData[TempDataSuccessKey] = $"Removed '{favoriteValue}' from favorites.";
+        try
+        {
+            await _userPreferencesService.RemoveFavoriteCityAsync(userId, favoriteValue);
+            TempData[TempDataSuccessKey] = $"Removed '{favoriteValue}' from favorites.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed removing favorite city {City} for user {UserId}", favoriteValue, userId);
+            TempData[TempDataErrorKey] = FavoriteRemoveFailedMessage;
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
