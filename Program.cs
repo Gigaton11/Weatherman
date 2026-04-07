@@ -19,6 +19,20 @@ if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE")))
     Environment.SetEnvironmentVariable("AWS_EC2_METADATA_DISABLED", "true");
 }
 
+var hasAwsAccessKey = !string.IsNullOrWhiteSpace(
+    Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID")
+    ?? builder.Configuration["AWS:AccessKeyId"]);
+var hasAwsSecretKey = !string.IsNullOrWhiteSpace(
+    Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
+    ?? builder.Configuration["AWS:SecretAccessKey"]);
+
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE"))
+    && (!hasAwsAccessKey || !hasAwsSecretKey))
+{
+    throw new InvalidOperationException(
+        "AWS credentials are missing on Cloud Run. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for DynamoDB access.");
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // LOGGING CONFIGURATION
 // ─────────────────────────────────────────────────────────────────────────
