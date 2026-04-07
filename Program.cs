@@ -13,6 +13,12 @@ using Amazon.SecretsManager;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Cloud Run is not EC2, so skip IMDS credential probing to avoid misleading errors.
+if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE")))
+{
+    Environment.SetEnvironmentVariable("AWS_EC2_METADATA_DISABLED", "true");
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // LOGGING CONFIGURATION
 // ─────────────────────────────────────────────────────────────────────────
