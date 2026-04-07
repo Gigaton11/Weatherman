@@ -305,20 +305,20 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
             }
 
             var normalizedCity = city.Trim();
-            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
-
-            await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+            var preference = await GetUserPreferencesAsync(userId) ?? new UserWeatherPreference
             {
-                TableName = _tableName,
-                Key = BuildUserKey(userId),
-                UpdateExpression = "ADD FavoriteCities :citySet SET LastUpdated = :lastUpdated, TemperatureUnit = if_not_exists(TemperatureUnit, :defaultUnit)",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    [":citySet"] = new AttributeValue { SS = new List<string> { normalizedCity } },
-                    [":lastUpdated"] = new AttributeValue { N = unixNow },
-                    [":defaultUnit"] = new AttributeValue { S = "Celsius" }
-                }
-            });
+                UserId = userId,
+                TemperatureUnit = "Celsius"
+            };
+
+            preference.FavoriteCities = preference.FavoriteCities
+                .Append(normalizedCity)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            await SaveUserPreferencesAsync(preference);
             
             _logger.LogInformation("Added favorite city {City} for user: {UserId}", city, userId);
         }
@@ -347,20 +347,18 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
             }
 
             var normalizedCity = city.Trim();
-            var unixNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
-
-            await _dynamoDb.UpdateItemAsync(new UpdateItemRequest
+            var preference = await GetUserPreferencesAsync(userId);
+            if (preference == null)
             {
-                TableName = _tableName,
-                Key = BuildUserKey(userId),
-                UpdateExpression = "DELETE FavoriteCities :citySet SET LastUpdated = :lastUpdated, TemperatureUnit = if_not_exists(TemperatureUnit, :defaultUnit)",
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    [":citySet"] = new AttributeValue { SS = new List<string> { normalizedCity } },
-                    [":lastUpdated"] = new AttributeValue { N = unixNow },
-                    [":defaultUnit"] = new AttributeValue { S = "Celsius" }
-                }
-            });
+                _logger.LogInformation("No preferences to update while removing favorite for user: {UserId}", userId);
+                return;
+            }
+
+            preference.FavoriteCities = preference.FavoriteCities
+                .Where(c => !string.Equals(c?.Trim(), normalizedCity, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            await SaveUserPreferencesAsync(preference);
             
             _logger.LogInformation("Removed favorite city {City} for user: {UserId}", city, userId);
         }
