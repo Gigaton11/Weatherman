@@ -7,6 +7,20 @@
 <div class="page-section">
     <div class="row">
         <div class="col-lg-9 col-xl-8 mx-auto">
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success app-alert" role="alert">
+                    @TempData["SuccessMessage"]
+                </div>
+            }
+
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger app-alert" role="alert">
+                    @TempData["ErrorMessage"]
+                </div>
+            }
+
             <div class="card app-card weather-card">
                 <div class="card-body p-4 p-md-5">
                     <div class="row">

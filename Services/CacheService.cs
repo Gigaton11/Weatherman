@@ -284,6 +284,7 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error saving preferences for user: {UserId}", preference.UserId);
+            throw;
         }
     }
 

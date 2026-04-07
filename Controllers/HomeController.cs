@@ -76,6 +76,35 @@ public class HomeController : Controller
         return View();
     }
 
+    [HttpGet]
+    public async Task<IActionResult> WeatherDetail(string city, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+        {
+            TempData[TempDataErrorKey] = EmptyCityErrorMessage;
+            return RedirectToAction(nameof(Index));
+        }
+
+        try
+        {
+            var weather = await _weatherService.GetWeatherByCityAsync(city, country);
+
+            if (weather == null)
+            {
+                TempData[TempDataErrorKey] = WeatherNotFoundErrorMessage;
+                return RedirectToAction(nameof(Index));
+            }
+
+            return View(weather);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading weather detail for {City}", city);
+            TempData[TempDataErrorKey] = WeatherFetchErrorMessage;
+            return RedirectToAction(nameof(Index));
+        }
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddFavoriteCity(string city, string? country)
@@ -100,7 +129,7 @@ public class HomeController : Controller
             TempData[TempDataErrorKey] = FavoriteAddFailedMessage;
         }
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(WeatherDetail), new { city, country });
     }
 
     [HttpPost]
