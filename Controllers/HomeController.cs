@@ -117,17 +117,22 @@ public class HomeController : Controller
 
         var userId = GetOrCreateUserId();
         var favoriteValue = BuildFavoriteValue(city, country);
+        var addedSuccessfully = false;
 
         try
         {
             await _userPreferencesService.AddFavoriteCityAsync(userId, favoriteValue);
             TempData[TempDataSuccessKey] = $"Added '{favoriteValue}' to favorites.";
+            addedSuccessfully = true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed adding favorite city {City} for user {UserId}", favoriteValue, userId);
             TempData[TempDataErrorKey] = FavoriteAddFailedMessage;
         }
+
+        if (addedSuccessfully)
+            return RedirectToAction(nameof(Index));
 
         return RedirectToAction(nameof(WeatherDetail), new { city, country });
     }
