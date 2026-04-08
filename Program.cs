@@ -97,29 +97,56 @@ builder.Services.AddScoped<ISecretsManagerService, SecretsManagerService>();    
 
 static string ResolveAwsRegion(IConfiguration configuration)
 {
-    return configuration["AWS:Region"]
+    var region = configuration["AWS:Region"]
         ?? Environment.GetEnvironmentVariable("AWS_REGION")
         ?? "eu-north-1";
+
+    return NormalizeAwsSetting(region);
 }
 
 static AWSCredentials? ResolveAwsCredentials(IConfiguration configuration)
 {
-    var accessKey = configuration["AWS:AccessKeyId"]
-        ?? Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
-    var secretKey = configuration["AWS:SecretAccessKey"]
-        ?? Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+    var accessKey = NormalizeAwsSetting(
+        configuration["AWS:AccessKeyId"]
+        ?? Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID"));
+    var secretKey = NormalizeAwsSetting(
+        configuration["AWS:SecretAccessKey"]
+        ?? Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY"));
 
     if (string.IsNullOrWhiteSpace(accessKey) || string.IsNullOrWhiteSpace(secretKey))
     {
         return null;
     }
 
-    var sessionToken = configuration["AWS:SessionToken"]
-        ?? Environment.GetEnvironmentVariable("AWS_SESSION_TOKEN");
+    if (accessKey.Any(char.IsWhiteSpace) || secretKey.Any(char.IsWhiteSpace))
+    {
+        throw new InvalidOperationException(
+            "AWS credentials contain whitespace characters. Verify Cloud Run variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY do not include spaces/newlines.");
+    }
+
+    var sessionToken = NormalizeAwsSetting(
+        configuration["AWS:SessionToken"]
+        ?? Environment.GetEnvironmentVariable("AWS_SESSION_TOKEN"));
 
     return string.IsNullOrWhiteSpace(sessionToken)
         ? new BasicAWSCredentials(accessKey, secretKey)
         : new SessionAWSCredentials(accessKey, secretKey, sessionToken);
+}
+
+static string? NormalizeAwsSetting(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return value;
+    }
+
+    var normalized = value.Trim();
+    if (normalized.Length >= 2 && normalized.StartsWith('"') && normalized.EndsWith('"'))
+    {
+        normalized = normalized[1..^1].Trim();
+    }
+
+    return normalized;
 }
 
 // Build the application after all services are registered
