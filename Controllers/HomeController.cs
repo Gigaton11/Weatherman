@@ -16,6 +16,14 @@ public class HomeController : Controller
     private const string FavoriteCityRequiredMessage = "City is required to add a favorite.";
     private const string FavoriteAddFailedMessage = "Could not save favorite city. Please try again.";
     private const string FavoriteRemoveFailedMessage = "Could not remove favorite city. Please try again.";
+    private const int MaxRecentLocationsToDisplay = 3;
+
+    private static readonly (string City, string? Country)[] DefaultRecentLocations =
+    {
+        ("London", "GB"),
+        ("Athens", "GR"),
+        ("Tokyo", "JP")
+    };
 
     private readonly IWeatherService _weatherService;
     private readonly IUserPreferencesService _userPreferencesService;
@@ -34,7 +42,7 @@ public class HomeController : Controller
     public async Task<IActionResult> Index()
     {
         _logger.LogInformation("Home index page accessed");
-        await LoadFavoriteCitiesAsync();
+        await LoadHomePageDataAsync();
         return View();
     }
 
@@ -45,7 +53,7 @@ public class HomeController : Controller
         if (string.IsNullOrWhiteSpace(city))
         {
             ModelState.AddModelError(CityFieldName, EmptyCityErrorMessage);
-            await LoadFavoriteCitiesAsync();
+            await LoadHomePageDataAsync();
             return View("Index");
         }
 
@@ -56,9 +64,11 @@ public class HomeController : Controller
             if (weather == null)
             {
                 ModelState.AddModelError(string.Empty, WeatherNotFoundErrorMessage);
-                await LoadFavoriteCitiesAsync();
+                await LoadHomePageDataAsync();
                 return View("Index");
             }
+
+            ViewBag.IsFavoriteCity = await IsFavoriteCityAsync(weather.City, weather.Country);
 
             return View("WeatherDetail", weather);
         }
@@ -66,7 +76,7 @@ public class HomeController : Controller
         {
             _logger.LogError(ex, "Error searching weather for {City}", city);
             ModelState.AddModelError(string.Empty, WeatherFetchErrorMessage);
-            await LoadFavoriteCitiesAsync();
+            await LoadHomePageDataAsync();
             return View("Index");
         }
     }
@@ -94,6 +104,8 @@ public class HomeController : Controller
                 TempData[TempDataErrorKey] = WeatherNotFoundErrorMessage;
                 return RedirectToAction(nameof(Index));
             }
+
+            ViewBag.IsFavoriteCity = await IsFavoriteCityAsync(weather.City, weather.Country);
 
             return View(weather);
         }
@@ -132,7 +144,7 @@ public class HomeController : Controller
         }
 
         if (addedSuccessfully)
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(WeatherDetail), new { city, country });
 
         return RedirectToAction(nameof(WeatherDetail), new { city, country });
     }
@@ -153,6 +165,13 @@ public class HomeController : Controller
         try
         {
             await _userPreferencesService.RemoveFavoriteCityAsync(userId, favoriteValue);
+
+            // Backward compatibility: older favorites may have been stored as city-only.
+            if (!string.IsNullOrWhiteSpace(country))
+            {
+                await _userPreferencesService.RemoveFavoriteCityAsync(userId, city.Trim());
+            }
+
             TempData[TempDataSuccessKey] = $"Removed '{favoriteValue}' from favorites.";
         }
         catch (Exception ex)
@@ -161,7 +180,7 @@ public class HomeController : Controller
             TempData[TempDataErrorKey] = FavoriteRemoveFailedMessage;
         }
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction(nameof(WeatherDetail), new { city, country });
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -174,11 +193,99 @@ public class HomeController : Controller
         });
     }
 
-    private async Task LoadFavoriteCitiesAsync()
+    private async Task LoadHomePageDataAsync()
     {
         var userId = GetOrCreateUserId();
         var preferences = await _userPreferencesService.GetUserPreferencesAsync(userId);
-        ViewBag.FavoriteCities = preferences?.FavoriteCities ?? new List<string>();
+        var favoriteCities = preferences?.FavoriteCities ?? new List<string>();
+        ViewBag.FavoriteCities = favoriteCities;
+
+        var recentCandidates = BuildRecentCandidates(favoriteCities);
+        var recentWeather = await LoadRecentWeatherAsync(recentCandidates);
+        ViewBag.RecentLocations = recentWeather;
+    }
+
+    private static List<(string City, string? Country)> BuildRecentCandidates(IEnumerable<string> favorites)
+    {
+        var fromFavorites = favorites
+            .Select(ParseFavoriteCity)
+            .Where(x => !string.IsNullOrWhiteSpace(x.City))
+            .Take(MaxRecentLocationsToDisplay)
+            .ToList();
+
+        if (fromFavorites.Count > 0)
+            return fromFavorites;
+
+        return DefaultRecentLocations.ToList();
+    }
+
+    private async Task<List<WeatherData>> LoadRecentWeatherAsync(IEnumerable<(string City, string? Country)> candidates)
+    {
+        var results = new List<WeatherData>();
+
+        foreach (var (city, country) in candidates)
+        {
+            try
+            {
+                var weather = await _weatherService.GetWeatherByCityAsync(city, country);
+                if (weather != null)
+                    results.Add(weather);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed loading recent location weather for {City}", city);
+            }
+        }
+
+        return results;
+    }
+
+    private static (string City, string? Country) ParseFavoriteCity(string favorite)
+    {
+        if (string.IsNullOrWhiteSpace(favorite))
+            return (string.Empty, null);
+
+        var parts = favorite
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        var city = parts.Length > 0 ? parts[0] : string.Empty;
+        var country = parts.Length > 1 ? parts[1] : null;
+
+        return (city, country);
+    }
+
+    private async Task<bool> IsFavoriteCityAsync(string city, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(city))
+            return false;
+
+        var userId = GetOrCreateUserId();
+        var preferences = await _userPreferencesService.GetUserPreferencesAsync(userId);
+        var favorites = preferences?.FavoriteCities ?? new List<string>();
+
+        if (favorites.Count == 0)
+            return false;
+
+        var cityTrimmed = city.Trim();
+        var countryTrimmed = country?.Trim();
+        var exactFavoriteValue = BuildFavoriteValue(cityTrimmed, countryTrimmed);
+
+        return favorites.Any(f =>
+            string.Equals(f, exactFavoriteValue, StringComparison.OrdinalIgnoreCase)
+            || IsFavoriteMatch(f, cityTrimmed, countryTrimmed));
+    }
+
+    private static bool IsFavoriteMatch(string favorite, string city, string? country)
+    {
+        var parsed = ParseFavoriteCity(favorite);
+        if (!string.Equals(parsed.City, city, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        // Treat city-only favorites as matching any country variant for the same city.
+        if (string.IsNullOrWhiteSpace(parsed.Country) || string.IsNullOrWhiteSpace(country))
+            return true;
+
+        return string.Equals(parsed.Country, country, StringComparison.OrdinalIgnoreCase);
     }
 
     private string GetOrCreateUserId()

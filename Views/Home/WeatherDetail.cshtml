@@ -1,7 +1,35 @@
 @model WeatherData
+@using System.Globalization
 
 @{
     ViewData["Title"] = $"Weather in {Model.City}";
+    var isFavoriteCity = ViewBag.IsFavoriteCity as bool? ?? false;
+
+    var lat = Model.Latitude;
+    var lon = Model.Longitude;
+    const double latDelta = 2.4;
+    const double lonDelta = 4.2;
+
+    var minLat = Math.Max(-90d, lat - latDelta);
+    var maxLat = Math.Min(90d, lat + latDelta);
+    var minLon = Math.Max(-180d, lon - lonDelta);
+    var maxLon = Math.Min(180d, lon + lonDelta);
+
+    var bboxParam = string.Join("%2C", new[]
+    {
+        minLon.ToString("F4", CultureInfo.InvariantCulture),
+        minLat.ToString("F4", CultureInfo.InvariantCulture),
+        maxLon.ToString("F4", CultureInfo.InvariantCulture),
+        maxLat.ToString("F4", CultureInfo.InvariantCulture)
+    });
+
+    var markerParam = string.Join("%2C", new[]
+    {
+        lat.ToString("F4", CultureInfo.InvariantCulture),
+        lon.ToString("F4", CultureInfo.InvariantCulture)
+    });
+
+    var mapEmbedUrl = $"https://www.openstreetmap.org/export/embed.html?bbox={bboxParam}&layer=mapnik&marker={markerParam}";
 }
 
 <div class="page-section">
@@ -24,7 +52,7 @@
             <div class="card app-card weather-card">
                 <div class="card-body p-4 p-md-5">
                     <div class="row">
-                        <div class="col-md-7">
+                        <div class="col-md-6">
                             <h1 class="h2 mb-2">@Model.City, @Model.Country</h1>
                             <h2 class="h5 text-muted text-capitalize mb-3">@Model.Description</h2>
                             <hr>
@@ -36,8 +64,19 @@
                                 <p><strong>Wind Speed:</strong> @Model.WindSpeed.ToString("F1") m/s</p>
                             </div>
                         </div>
-                        <div class="col-md-5 text-center d-flex align-items-center justify-content-center">
-                            <img src="@Model.IconUrl" alt="@Model.Description" class="weather-icon">
+                        <div class="col-md-6 d-flex align-items-center justify-content-center mt-4 mt-md-0">
+                            <section class="city-map-panel" aria-label="2D map showing searched city location">
+                                <h3 class="h6 mb-2 text-muted">City on Map</h3>
+                                <iframe
+                                    class="city-map"
+                                    title="Map for @Model.City"
+                                    src="@mapEmbedUrl"
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer-when-downgrade"></iframe>
+                                <div class="city-map-coordinates text-muted small mt-2">
+                                    @Model.City: @Model.Latitude.ToString("F2")&deg;, @Model.Longitude.ToString("F2")&deg;
+                                </div>
+                            </section>
                         </div>
                     </div>
 
@@ -105,11 +144,13 @@
             </div>
 
             <div class="mt-4 d-flex flex-wrap gap-2">
-                <form asp-action="AddFavoriteCity" asp-controller="Home" method="post" class="d-inline">
+                <form asp-action="@(isFavoriteCity ? "RemoveFavoriteCity" : "AddFavoriteCity")" asp-controller="Home" method="post" class="d-inline">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="city" value="@Model.City" />
                     <input type="hidden" name="country" value="@Model.Country" />
-                    <button type="submit" class="btn btn-outline-primary">Add To Favorites</button>
+                    <button type="submit" class="btn @(isFavoriteCity ? "btn-outline-danger" : "btn-outline-primary")">
+                        @(isFavoriteCity ? "Remove From Favorites" : "Add To Favorites")
+                    </button>
                 </form>
                 <a href="/" class="btn btn-secondary">Search Another City</a>
             </div>

@@ -1,13 +1,13 @@
 @{
     ViewData["Title"] = "Weatherman";
+    var favoriteCities = ViewBag.FavoriteCities as List<string> ?? new List<string>();
+    var recentLocations = ViewBag.RecentLocations as List<WeatherData> ?? new List<WeatherData>();
 }
 
-<div class="page-section">
-    <div class="row">
-        <div class="col-lg-9 col-xl-8 mx-auto">
-            <header class="mb-4">
-                <p class="lead text-muted mb-0">Search by city name and find current weather conditions.</p>
-            </header>
+<div class="weather-home">
+    <section class="home-hero">
+        <div class="home-hero-overlay"></div>
+        <div class="home-hero-content">
 
             @if (TempData["SuccessMessage"] != null)
             {
@@ -23,53 +23,73 @@
                 </div>
             }
 
-            <section class="card app-card mb-4">
-                <div class="card-body p-4">
-                    <h2 class="h5 mb-3">Search 🔎</h2>
-                    <form asp-action="SearchWeather" asp-controller="Home" method="post" class="mb-0">
-                        @Html.AntiForgeryToken()
-                        <div class="row g-3 align-items-end search-row">
-                            <div class="col-12 col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label" for="city">City Name</label>
-                                    <input type="text" class="form-control" id="city" name="city"
-                                           placeholder="e.g., London, New York" required>
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-4">
-                                <div class="form-group">
-                                    <label class="form-label" for="country">Country (Optional)</label>
-                                    <input type="text" class="form-control" id="country" name="country"
-                                           placeholder="e.g., UK, US">
-                                </div>
-                            </div>
-                            <div class="col-12 col-md-2 d-grid">
-                                <div class="form-group w-100">
-                                    <button type="submit" class="btn btn-primary w-100 search-btn">Search</button>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
+            <form asp-action="SearchWeather" asp-controller="Home" method="post" class="hero-search-form">
+                @Html.AntiForgeryToken()
+                <div class="hero-search-shell">
+                    <span class="hero-search-icon" aria-hidden="true">&#128269;</span>
+                    <label class="visually-hidden" for="city">City Name</label>
+                    <input
+                        type="text"
+                        class="hero-city-input"
+                        id="city"
+                        name="city"
+                        placeholder="Check the weather on"
+                        required>
+                    <label class="visually-hidden" for="country">Country</label>
+                    <input
+                        type="text"
+                        class="hero-country-input"
+                        id="country"
+                        name="country"
+                        placeholder="(Optional, e.g GR, US)">
+                    <button type="submit" class="hero-search-button">Search</button>
                 </div>
-            </section>
+            </form>
 
             @if (ViewData.ModelState.Values.Any(v => v.Errors.Any()))
             {
-                <div class="alert alert-danger app-alert" role="alert">
+                <div class="alert alert-danger app-alert mt-3" role="alert">
                     @Html.ValidationSummary(true)
                 </div>
             }
 
-            @{
-                var favoriteCities = ViewBag.FavoriteCities as List<string> ?? new List<string>();
-            }
+            <section class="home-recents mt-4" aria-label="Recent locations">
+                <h2 class="recents-title">RECENT LOCATIONS</h2>
+                <div class="recent-grid">
+                    @foreach (var recent in recentLocations)
+                    {
+                        <form asp-action="SearchWeather" asp-controller="Home" method="post" class="recent-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="city" value="@recent.City" />
+                            @if (!string.IsNullOrWhiteSpace(recent.Country))
+                            {
+                                <input type="hidden" name="country" value="@recent.Country" />
+                            }
 
-            <section class="card app-card mb-4">
+                            <button type="submit" class="recent-card">
+                                <div class="recent-city">@recent.City</div>
+                                <div class="recent-country">@recent.Country</div>
+                                <div class="recent-weather-row">
+                                    <img src="@recent.IconUrl" alt="@recent.Description" class="recent-icon" />
+                                    <span class="recent-temp">@recent.Temperature.ToString("F0")&deg;</span>
+                                </div>
+                                <div class="recent-feels">RealFeel&reg; @recent.FeelsLike.ToString("F0")&deg;</div>
+                            </button>
+                        </form>
+                    }
+                </div>
+            </section>
+
+            <section class="card app-card unified-favorites-card mt-4" aria-label="Favorite cities">
                 <div class="card-body p-4">
-                    <h2 class="h5 card-title mb-3">Favorite Cities</h2>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <h2 class="h5 card-title mb-0">Favorite Cities</h2>
+                        <span class="text-muted small">Quickly search your saved locations</span>
+                    </div>
+
                     @if (favoriteCities.Count == 0)
                     {
-                        <p class="card-text text-muted mb-0">No favorites yet. Search a city and click "Add To Favorites".</p>
+                        <p class="card-text text-muted mb-0">No favorites yet. Search a city above and click "Add To Favorites".</p>
                     }
                     else
                     {
@@ -83,24 +103,12 @@
                                         <input type="hidden" name="city" value="@favorite" />
                                         <button type="submit" class="btn btn-sm btn-primary me-1">Search</button>
                                     </form>
-                                    <form asp-action="RemoveFavoriteCity" asp-controller="Home" method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="city" value="@favorite" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                                    </form>
                                 </div>
                             </div>
                         }
                     }
                 </div>
             </section>
-
-            <section class="card app-card">
-                <div class="card-body text-center p-4">
-                    <h2 class="h5 card-title">Get Started</h2>
-                    <p class="card-text mb-0">Enter a city name above to see current weather conditions.</p>
-                </div>
-            </section>
         </div>
-    </div>
+    </section>
 </div>
