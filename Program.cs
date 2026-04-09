@@ -101,7 +101,8 @@ static string ResolveAwsRegion(IConfiguration configuration)
         ?? Environment.GetEnvironmentVariable("AWS_REGION")
         ?? "eu-north-1";
 
-    return NormalizeAwsSetting(region);
+    var normalizedRegion = NormalizeAwsSetting(region);
+    return string.IsNullOrWhiteSpace(normalizedRegion) ? "eu-north-1" : normalizedRegion;
 }
 
 static AWSCredentials? ResolveAwsCredentials(IConfiguration configuration)

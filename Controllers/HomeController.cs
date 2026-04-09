@@ -68,6 +68,8 @@ public class HomeController : Controller
                 return View("Index");
             }
 
+            await TrackRecentLocationAsync(weather.City, weather.Country);
+
             ViewBag.IsFavoriteCity = await IsFavoriteCityAsync(weather.City, weather.Country);
 
             return View("WeatherDetail", weather);
@@ -104,6 +106,8 @@ public class HomeController : Controller
                 TempData[TempDataErrorKey] = WeatherNotFoundErrorMessage;
                 return RedirectToAction(nameof(Index));
             }
+
+            await TrackRecentLocationAsync(weather.City, weather.Country);
 
             ViewBag.IsFavoriteCity = await IsFavoriteCityAsync(weather.City, weather.Country);
 
@@ -200,21 +204,45 @@ public class HomeController : Controller
         var favoriteCities = preferences?.FavoriteCities ?? new List<string>();
         ViewBag.FavoriteCities = favoriteCities;
 
-        var recentCandidates = BuildRecentCandidates(favoriteCities);
+        var recentCandidates = BuildRecentCandidates(preferences?.RecentLocations);
         var recentWeather = await LoadRecentWeatherAsync(recentCandidates);
         ViewBag.RecentLocations = recentWeather;
     }
 
-    private static List<(string City, string? Country)> BuildRecentCandidates(IEnumerable<string> favorites)
+    private async Task TrackRecentLocationAsync(string city, string? country)
     {
-        var fromFavorites = favorites
+        if (string.IsNullOrWhiteSpace(city))
+            return;
+
+        var userId = GetOrCreateUserId();
+        var preferences = await _userPreferencesService.GetUserPreferencesAsync(userId) ?? new UserWeatherPreference
+        {
+            UserId = userId,
+            TemperatureUnit = "Celsius"
+        };
+
+        var normalized = BuildFavoriteValue(city, country);
+        preferences.RecentLocations = preferences.RecentLocations
+            .Prepend(normalized)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxRecentLocationsToDisplay)
+            .ToList();
+
+        await _userPreferencesService.SaveUserPreferencesAsync(preferences);
+    }
+
+    private static List<(string City, string? Country)> BuildRecentCandidates(IEnumerable<string>? recentLocations)
+    {
+        var fromRecent = (recentLocations ?? Enumerable.Empty<string>())
             .Select(ParseFavoriteCity)
             .Where(x => !string.IsNullOrWhiteSpace(x.City))
             .Take(MaxRecentLocationsToDisplay)
             .ToList();
 
-        if (fromFavorites.Count > 0)
-            return fromFavorites;
+        if (fromRecent.Count > 0)
+            return fromRecent;
 
         return DefaultRecentLocations.ToList();
     }

@@ -225,6 +225,7 @@ public class UserWeatherPreference
 {
     public string UserId { get; set; } = string.Empty;
     public List<string> FavoriteCities { get; set; } = new();
+    public List<string> RecentLocations { get; set; } = new();
     public string TemperatureUnit { get; set; } = "Celsius";
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

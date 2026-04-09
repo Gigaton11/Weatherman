@@ -150,6 +150,7 @@ public class AmazonElastiCacheService : ICacheService
 // Attributes:
 // - UserId (String, partition key)
 // - FavoriteCities (List of Strings)
+// - RecentLocations (List of Strings, newest first)
 // - TemperatureUnit (String: "Celsius" or "Fahrenheit")
 // - LastUpdated (Number, Unix timestamp)
 // 
@@ -271,6 +272,23 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
             if (favorites.Count > 0)
             {
                 item["FavoriteCities"] = new AttributeValue { SS = favorites };
+            }
+
+            var recentLocations = preference.RecentLocations
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .ToList();
+
+            if (recentLocations.Count > 0)
+            {
+                item["RecentLocations"] = new AttributeValue
+                {
+                    L = recentLocations
+                        .Select(c => new AttributeValue { S = c })
+                        .ToList()
+                };
             }
 
             await _dynamoDb.PutItemAsync(new PutItemRequest
@@ -397,6 +415,15 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
             }
         }
 
+        var recentLocations = new List<string>();
+        if (item.TryGetValue("RecentLocations", out var recentAttr) && recentAttr.L != null)
+        {
+            recentLocations.AddRange(
+                recentAttr.L
+                    .Where(v => !string.IsNullOrWhiteSpace(v.S))
+                    .Select(v => v.S!.Trim()));
+        }
+
         var lastUpdated = DateTime.UtcNow;
         if (item.TryGetValue("LastUpdated", out var updatedAttr))
         {
@@ -417,6 +444,10 @@ public class DynamoDbUserPreferencesService : IUserPreferencesService
         {
             UserId = userId,
             FavoriteCities = favorites.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            RecentLocations = recentLocations
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(3)
+                .ToList(),
             TemperatureUnit = temperatureUnit,
             LastUpdated = lastUpdated
         };
