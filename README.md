@@ -7,8 +7,8 @@ Weather forecast application made with ASP.NET Core and OpenWeatherMap's Api. Us
 Visit [Weatherman](https://weatherman-750230352076.europe-west1.run.app)
 
 ## Screenshots
-<summary>Home Page</summary> <details><img width="1372" height="1209" alt="image" src="https://github.com/user-attachments/assets/78acaaa4-8aa8-44de-9480-dbb8a2a89001" /></details>
-<summary>Forecast Page</summary> <details><img width="1204" height="1217" alt="image" src="https://github.com/user-attachments/assets/799cacba-42d0-4904-9649-0463e473c805" /></details>
+<summary>Home Page</summary> <details><img width="1137" height="1002" alt="image" src="https://github.com/user-attachments/assets/3bf5e9c7-2ff0-4f91-ab80-e62140f75d31" /></details>
+<summary>Forecast Page</summary> <details><img width="1063" height="1164" alt="image" src="https://github.com/user-attachments/assets/34d29cdc-4dd2-4893-9b93-23158f864ade" /></details>
 
 ## Features
 
