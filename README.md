@@ -142,6 +142,8 @@ This repository is already structured for Dockerfile-based Cloud Run builds:
 7. Authentication: **Allow unauthenticated** if this is a public app.
 8. Add environment variables:
 	- `ASPNETCORE_ENVIRONMENT=Production`
+	- `AWS_ACCESS_KEY_ID=<your-aws-access-key-id>`
+	- `AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key>`
 	- `AWS__Region=eu-north-1`
 	- `AWS__DynamoDB__TableName=UserWeatherPreferences`
 	- Optionally `WeatherApi__ApiKey` if not using Secrets Manager.

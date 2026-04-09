@@ -13,8 +13,10 @@ using Amazon.SecretsManager;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var isCloudRun = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE"));
+
 // Cloud Run is not EC2, so skip IMDS credential probing to avoid misleading errors.
-if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE")))
+if (isCloudRun)
 {
     Environment.SetEnvironmentVariable("AWS_EC2_METADATA_DISABLED", "true");
 }
@@ -26,11 +28,10 @@ var hasAwsSecretKey = !string.IsNullOrWhiteSpace(
     Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY")
     ?? builder.Configuration["AWS:SecretAccessKey"]);
 
-if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("K_SERVICE"))
-    && (!hasAwsAccessKey || !hasAwsSecretKey))
+if (isCloudRun && (!hasAwsAccessKey || !hasAwsSecretKey))
 {
-    throw new InvalidOperationException(
-        "AWS credentials are missing on Cloud Run. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for DynamoDB access.");
+    Console.Error.WriteLine(
+        "Warning: AWS credentials are missing on Cloud Run. DynamoDB/Secrets operations may fail until AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are configured.");
 }
 
 // ─────────────────────────────────────────────────────────────────────────
