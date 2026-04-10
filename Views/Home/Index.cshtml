@@ -1,7 +1,44 @@
+@using System.Globalization
+
 @{
     ViewData["Title"] = "Weatherman";
     var favoriteCities = ViewBag.FavoriteCities as List<string> ?? new List<string>();
     var recentLocations = ViewBag.RecentLocations as List<WeatherData> ?? new List<WeatherData>();
+
+    static (string City, string? Country) ParseFavoriteLocation(string favorite)
+    {
+        if (string.IsNullOrWhiteSpace(favorite))
+            return (string.Empty, null);
+
+        var parts = favorite
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        var city = parts.Length > 0 ? parts[0] : string.Empty;
+        var country = parts.Length > 1 ? parts[1] : null;
+
+        return (city, country);
+    }
+
+    static string? ResolveCountryDisplayName(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country))
+            return null;
+
+        var trimmed = country.Trim();
+        if (trimmed.Length == 2)
+        {
+            try
+            {
+                return new RegionInfo(trimmed.ToUpperInvariant()).EnglishName;
+            }
+            catch (ArgumentException)
+            {
+                return trimmed;
+            }
+        }
+
+        return trimmed;
+    }
 }
 
 <div class="weather-home">
@@ -83,8 +120,8 @@
             <section class="card app-card unified-favorites-card mt-4" aria-label="Favorite cities">
                 <div class="card-body p-4">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                        <h2 class="h5 card-title mb-0">Favorite Cities</h2>
-                        <span class="text-muted small">Quickly search your saved locations</span>
+                        <h2 class="h5 card-title mb-0">Favorites</h2>
+                        <span class="text-muted small">Saved Locations</span>
                     </div>
 
                     @if (favoriteCities.Count == 0)
@@ -95,12 +132,24 @@
                     {
                         @foreach (var favorite in favoriteCities)
                         {
+                            var parsed = ParseFavoriteLocation(favorite);
+                            var city = parsed.City;
+                            var country = parsed.Country;
+                            var countryDisplayName = ResolveCountryDisplayName(country);
+                            var displayText = string.IsNullOrWhiteSpace(countryDisplayName)
+                                ? city
+                                : $"{city}, {countryDisplayName}";
+
                             <div class="favorite-item d-flex justify-content-between align-items-center rounded p-3 mb-2">
-                                <span>@favorite</span>
+                                <span>@displayText</span>
                                 <div class="d-flex gap-2">
                                     <form asp-action="SearchWeather" asp-controller="Home" method="post" class="d-inline">
                                         @Html.AntiForgeryToken()
-                                        <input type="hidden" name="city" value="@favorite" />
+                                        <input type="hidden" name="city" value="@city" />
+                                        @if (!string.IsNullOrWhiteSpace(country))
+                                        {
+                                            <input type="hidden" name="country" value="@country" />
+                                        }
                                         <button type="submit" class="btn btn-sm btn-primary me-1">Search</button>
                                     </form>
                                 </div>
