@@ -1,6 +1,6 @@
 # Weatherman 🌍
 
-ASP.NET Core MVC weather dashboard using OpenWeatherMap and AWS DynamoDB. Favorite cities are persisted per browser user ID, and the app is hosted on Google Cloud Run.
+Weather dashboard built with ASP.NET Core using OpenWeatherMap and AWS DynamoDB. Favorite cities are persisted per browser user ID, and the app is hosted on Google Cloud Run.
 
 ## 🟢 Live Demo
 Visit [Weatherman](https://weatherman-750230352076.europe-west1.run.app)
