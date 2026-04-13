@@ -1,30 +1,29 @@
 # Weatherman 🌍
 
-Weather forecast application made with ASP.NET Core and OpenWeatherMap's Api. User favorites are stored on AWS DynamoDB-backed.
-> Hosted on Google Cloud Run.
+ASP.NET Core MVC weather dashboard using OpenWeatherMap and AWS DynamoDB. Favorite cities are persisted per browser user ID, and the app is hosted on Google Cloud Run.
 
-## 🟢 Live Demo 
+## 🟢 Live Demo
 Visit [Weatherman](https://weatherman-750230352076.europe-west1.run.app)
 
 ## Screenshots
-<summary>Home Page</summary> <details><img width="1137" height="1002" alt="image" src="https://github.com/user-attachments/assets/3bf5e9c7-2ff0-4f91-ab80-e62140f75d31" /></details>
-<summary>Forecast Page</summary> <details><img width="1063" height="1164" alt="image" src="https://github.com/user-attachments/assets/34d29cdc-4dd2-4893-9b93-23158f864ade" /></details>
+<summary>Home Page</summary> <details><img width="1137" height="1002" alt="Home page screenshot" src="https://github.com/user-attachments/assets/3bf5e9c7-2ff0-4f91-ab80-e62140f75d31" /></details>
+<summary>Forecast Page</summary> <details><img width="1063" height="1164" alt="Forecast page screenshot" src="https://github.com/user-attachments/assets/34d29cdc-4dd2-4893-9b93-23158f864ade" /></details>
 
 ## Features
 
-- Search current weather by city, with optional country support.
-- View a 2-day forecast (daily min/max + summary icon/description) for searched cities.
-- Cache-aside weather retrieval (`ICacheService`) with configurable TTL.
-- Favorite cities persisted per browser user id in DynamoDB.
-- Country normalization (examples: `UK` -> `GB`, `USA` -> `US`).
-- Responsive UI with improved readability.
+- Search current weather by city, with optional country code support.
+- View a 2-day forecast aggregated from OpenWeatherMap 3-hour forecast data.
+- Cache-aside weather retrieval with configurable TTL.
+- Favorite cities persisted in AWS DynamoDB per browser user ID.
+- Country normalization (`UK` → `GB`, `USA` → `US`).
+- Responsive Razor UI with clear weather summaries.
 
-## Stack
+## Tech Stack
 
 - .NET 10 (`net10.0`)
 - ASP.NET Core MVC + Razor
-- Serilog (console + file)
-- AWS SDK (DynamoDB, Secrets Manager, CloudWatch package reference)
+- Serilog (console + file logging)
+- AWS SDK (DynamoDB, Secrets Manager, CloudWatch)
 - OpenWeatherMap API
 
 ## Project Structure
@@ -43,7 +42,7 @@ appsettings.json
 
 - .NET 10 SDK
 - OpenWeatherMap API key
-- AWS credentials/profile if using DynamoDB/Secrets Manager in non-local environments
+- AWS credentials/profile for DynamoDB and Secrets Manager
 
 ## Local Setup
 
@@ -53,7 +52,7 @@ appsettings.json
 dotnet restore
 ```
 
-2. Configure API key (recommended via user-secrets):
+2. Configure the API key (recommended via user-secrets):
 
 ```bash
 dotnet user-secrets init
@@ -67,21 +66,21 @@ dotnet build
 dotnet run
 ```
 
-4. Open the local URL shown in terminal (typically `https://localhost:7001`).
+4. Open the local URL shown in the terminal (typically `https://localhost:7001`).
 
 ## Forecast Notes
 
-- Forecast data uses OpenWeatherMap `/forecast` (3-hour intervals), aggregated into the next 2 local calendar days for the selected city.
-- Forecast responses are cached using the same cache duration configured in `Caching:DurationMinutes`.
+- Forecast data uses OpenWeatherMap `/forecast` (3-hour intervals) and aggregates the next 2 local calendar days.
+- Forecast responses are cached according to `Caching:DurationMinutes`.
 
 ## Configuration
 
 ### `WeatherApi`
 
 - `BaseUrl`: OpenWeatherMap base URL.
-- `ApiKey`: Local/dev API key (preferred in user-secrets).
-- `ApiKeySecretName`: AWS Secrets Manager key name fallback.
-- `TimeoutSeconds`: intended timeout configuration.
+- `ApiKey`: Local/dev API key (preferred via user-secrets).
+- `ApiKeySecretName`: AWS Secrets Manager secret name fallback.
+- `TimeoutSeconds`: configured request timeout.
 
 ### `Caching`
 
@@ -89,14 +88,14 @@ dotnet run
 
 ### `AWS`
 
-- `Region`: AWS region for clients.
-- `DynamoDB:TableName`: table used by `DynamoDbUserPreferencesService`.
+- `Region`: AWS region for AWS clients.
+- `DynamoDB:TableName`: DynamoDB table for user preferences.
 
 ## Security Notes
 
 - `SearchWeather`, `AddFavoriteCity`, and `RemoveFavoriteCity` are POST endpoints with antiforgery validation.
-- Razor forms posting to these actions include antiforgery tokens.
-- User id cookie is `HttpOnly` and `SameSite=Lax`.
+- Razor forms include antiforgery tokens.
+- User ID cookie is `HttpOnly` and `SameSite=Lax`.
 
 ## Useful Commands
 
@@ -114,7 +113,7 @@ docker build -t weather-dashboard .
 docker run --rm -p 8080:8080 weather-dashboard
 ```
 
-Open `http://localhost:8080`.
+Then open `http://localhost:8080`.
 
 Production-style local check:
 
@@ -123,70 +122,67 @@ docker run --rm -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Production weather-dashbo
 curl http://localhost:8080/health
 ```
 
-## Deploy to Google Cloud Run (Connect Repo in Browser)
+## Deploy to Google Cloud Run
 
-This repository is already structured for Dockerfile-based Cloud Run builds:
+This repository is structured for Dockerfile-based Cloud Run deployment.
 
-- `Dockerfile` is in repository root.
-- `.dockerignore` trims build context.
-- App listens on port `8080` and includes `/health` endpoint.
+- `Dockerfile` is in the repository root.
+- `.dockerignore` trims the build context.
+- The application listens on port `8080` and exposes `/health`.
 
-### Browser flow (continuous deployment)
+### Browser deployment flow
 
 1. Open Cloud Run in Google Cloud Console.
-2. Click **Create service** -> **Continuously deploy from a repository (source or function)**.
-3. Click **Set up with Cloud Build** and connect GitHub if not already linked.
-4. Select repository and branch (for example `main`).
-5. Build type: **Dockerfile**.
-6. Region: choose your target region (for example `europe-west1`).
-7. Authentication: **Allow unauthenticated** if this is a public app.
+2. Click **Create service** and choose **Continuously deploy from a repository**.
+3. Set up Cloud Build and connect GitHub if needed.
+4. Select the repository and branch (for example `main`).
+5. Choose **Dockerfile** build type.
+6. Select a region (for example `europe-west1`).
+7. Allow unauthenticated access if the service is public.
 8. Add environment variables:
-	- `ASPNETCORE_ENVIRONMENT=Production`
-	- `AWS_ACCESS_KEY_ID=<your-aws-access-key-id>`
-	- `AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key>`
-	- `AWS__Region=eu-north-1`
-	- `AWS__DynamoDB__TableName=UserWeatherPreferences`
-	- Optionally `WeatherApi__ApiKey` if not using Secrets Manager.
-9. Create the service. Cloud Run will auto-deploy on future commits to the selected branch.
+   - `ASPNETCORE_ENVIRONMENT=Production`
+   - `AWS_ACCESS_KEY_ID=<your-aws-access-key-id>`
+   - `AWS_SECRET_ACCESS_KEY=<your-aws-secret-access-key>`
+   - `AWS__Region=eu-north-1`
+   - `AWS__DynamoDB__TableName=UserWeatherPreferences`
+   - `WeatherApi__ApiKey=<optional if not using Secrets Manager>`
+9. Create the service and verify deployment.
 
 ### Post-deploy smoke checks
 
-1. Open service URL and verify home page loads.
-2. Verify `/health` returns `OK`.
-3. Search by city and confirm weather details render.
-4. Add/remove a favorite city and verify no server error.
-5. Check Cloud Run logs for startup and request traces.
+- Open the service URL and confirm the home page loads.
+- Verify `/health` returns `OK`.
+- Search for a city and confirm weather details appear.
+- Add/remove a favorite city and confirm there are no server errors.
+- Review Cloud Run logs for startup and request details.
 
 ## Deploy via CLI (optional)
-
-This repository contains a `Dockerfile`, so Cloud Build will build the container image during deploy.
 
 ```bash
 gcloud config set project weatherman-492508
 gcloud run deploy weather-dashboard \
-	--source . \
-	--region europe-west1 \
-	--allow-unauthenticated
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated
 ```
 
-To deploy with the exact service account by number:
+To deploy with a specific service account:
 
 ```bash
 gcloud run deploy weather-dashboard \
-	--source . \
-	--region europe-west1 \
-	--allow-unauthenticated \
-	--service-account 750230352076-compute@developer.gserviceaccount.com
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated \
+  --service-account 750230352076-compute@developer.gserviceaccount.com
 ```
 
-
-If your existing remote URL differs only by casing/name, update it:
+If you need to update your remote URL:
 
 ```bash
 git remote set-url origin https://github.com/Gigaton11/Weatherman.git
 ```
 
-## Known Follow-ups
+## Known follow-ups
 
 - `SecretsManagerService` is still a stub.
-- `TimeoutSeconds` exists in config but should be wired explicitly into `HttpClient` timeout setup.
+- `TimeoutSeconds` exists in config but should be wired into the `HttpClient` timeout setup.
