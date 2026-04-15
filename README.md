@@ -1,6 +1,6 @@
 # Weatherman 🌍
 
-Weather dashboard built with ASP.NET Core using OpenWeatherMap and AWS DynamoDB. Favorite cities are persisted per browser user ID, and the app is hosted on Google Cloud Run.
+Weather dashboard built with ASP.NET Core using OpenWeatherMap and AWS DynamoDB. Data persisted per browser user ID, and the app is hosted on Google Cloud Run.
 
 ## 🟢 Live Demo
 Visit [Weatherman](https://weatherman-750230352076.europe-west1.run.app)
@@ -181,8 +181,3 @@ If you need to update your remote URL:
 ```bash
 git remote set-url origin https://github.com/Gigaton11/Weatherman.git
 ```
-
-## Known follow-ups
-
-- `SecretsManagerService` is still a stub.
-- `TimeoutSeconds` exists in config but should be wired into the `HttpClient` timeout setup.
